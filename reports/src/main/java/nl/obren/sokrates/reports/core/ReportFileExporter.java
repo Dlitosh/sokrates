@@ -18,7 +18,11 @@ import java.util.Date;
 import java.util.List;
 
 public class ReportFileExporter {
-    public static void exportHtml(File folder, RichTextReport report) {
+
+    private static String htmlReportsSubFolder = "html";
+
+    public static void exportHtml(File folder, String subFolder, RichTextReport report) {
+        htmlReportsSubFolder = subFolder;
         File htmlReportsFolder = getHtmlReportsFolder(folder);
         String reportFileName = getReportFileName(report);
         export(htmlReportsFolder, report, reportFileName);
@@ -108,15 +112,19 @@ public class ReportFileExporter {
 
 
     private static File getHtmlReportsFolder(File reportsFolder) {
-        File htmlExportFolder = new File(reportsFolder, "html");
+        File htmlExportFolder = new File(reportsFolder, htmlReportsSubFolder);
         htmlExportFolder.mkdirs();
         return htmlExportFolder;
     }
 
-    private static String getIconSvg(String icon) {
+    public static String getIconSvg(String icon) {
+        return getIconSvg(icon, 80);
+    }
+
+    public static String getIconSvg(String icon, int size) {
         String svg = HtmlTemplateUtils.getResource("/icons/" + icon + ".svg");
-        svg = svg.replaceAll("height='.*?'", "height='80px'");
-        svg = svg.replaceAll("width='.*?'", "width='80px'");
+        svg = svg.replaceAll("height='.*?'", "height='" + size + "px'");
+        svg = svg.replaceAll("width='.*?'", "width='" + size + "px'");
         return svg;
     }
 
@@ -197,5 +205,4 @@ public class ReportFileExporter {
                 {"Dependencies.html", "Dependencies"}
         };
     }
-
 }
