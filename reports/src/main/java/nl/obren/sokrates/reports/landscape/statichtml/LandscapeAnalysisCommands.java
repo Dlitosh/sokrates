@@ -10,7 +10,6 @@ import nl.obren.sokrates.sourcecode.landscape.analysis.LandscapeAnalysisResults;
 import nl.obren.sokrates.sourcecode.landscape.analysis.LandscapeAnalyzer;
 import nl.obren.sokrates.sourcecode.landscape.init.LandscapeAnalysisInitiator;
 import nl.obren.sokrates.sourcecode.landscape.init.LandscapeAnalysisUpdater;
-import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,18 +44,16 @@ public class LandscapeAnalysisCommands {
 
     public static void generateReport(File landscapeConfigFile) {
         File reportsFolder = Paths.get(landscapeConfigFile.getParent(), "").toFile();
+        reportsFolder.mkdirs();
 
         LandscapeAnalyzer analyzer = new LandscapeAnalyzer();
 
         LandscapeAnalysisResults landscapeAnalysisResults = analyzer.analyze(landscapeConfigFile);
 
-        LandscapeReportGenerator reportGenerator = new LandscapeReportGenerator(landscapeAnalysisResults);
+        LandscapeReportGenerator reportGenerator = new LandscapeReportGenerator(landscapeAnalysisResults, landscapeConfigFile.getParentFile(), reportsFolder);
         List<RichTextReport> reports = reportGenerator.report();
 
         try {
-            FileUtils.deleteDirectory(reportsFolder);
-            reportsFolder.mkdirs();
-
             File finalReportsFolder = reportsFolder;
             reports.forEach(report -> {
                 ReportFileExporter.exportHtml(finalReportsFolder, "", report);

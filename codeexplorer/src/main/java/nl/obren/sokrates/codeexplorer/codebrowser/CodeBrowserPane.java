@@ -16,8 +16,8 @@ import nl.obren.sokrates.codeexplorer.console.WebViewConsole;
 import nl.obren.sokrates.common.io.UserProperties;
 import nl.obren.sokrates.common.utils.ProgressFeedback;
 import nl.obren.sokrates.sourcecode.SourceCodeFiles;
-import nl.obren.sokrates.sourcecode.aspects.CrossCuttingConcern;
-import nl.obren.sokrates.sourcecode.aspects.CrossCuttingConcernsGroup;
+import nl.obren.sokrates.sourcecode.aspects.Concern;
+import nl.obren.sokrates.sourcecode.aspects.ConcernsGroup;
 import nl.obren.sokrates.sourcecode.aspects.LogicalDecomposition;
 import nl.obren.sokrates.sourcecode.aspects.NamedSourceCodeAspect;
 import nl.obren.sokrates.sourcecode.core.CodeConfiguration;
@@ -47,7 +47,7 @@ public class CodeBrowserPane extends SplitPane {
     private SourceCodeFiles sourceCodeFiles = new SourceCodeFiles();
     private AspectsTablePane scopeAspectsTablePane;
     private AspectsTablePane logicalComponentsTablePane;
-    private AspectsTablePane crossCuttingAspectsTablePane;
+    private AspectsTablePane concernAspectsTablePane;
     private CodeConfiguration codeConfiguration = CodeConfiguration.getDefaultConfiguration();
     private SplitPane splitPane = new SplitPane();
 
@@ -61,21 +61,9 @@ public class CodeBrowserPane extends SplitPane {
 
     public CodeBrowserPane(Stage primaryStage) {
         setStyle(DEFAULT_FONT_STYLE_FRAGMENT);
-        this.findings = new Findings(() -> {
-            try {
-                String content = findingsFile.exists() ? FileUtils.readFileToString(findingsFile, StandardCharsets.UTF_8) : "";
-                FileUtils.write(findingsFile,
-                        content
-                                + "<finding>\n"
-                                + "<summary>" + findings.getSummary() + "</summary>\n\n"
-                                + "<body>\n" + findings.getContent() + "\n</body>\n"
-                                + "</finding>"
-                                + "\n\n\n"
-                        , StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
+
+        initFindings();
+
         this.aspectFilesBrowserPane = new AspectFilesBrowserPane(this, findings);
 
         codeViewerPane.setCenter(aspectFilesBrowserPane);
@@ -93,6 +81,24 @@ public class CodeBrowserPane extends SplitPane {
         getItems().addAll(mainPane, console);
         setOrientation(Orientation.VERTICAL);
         setDividerPosition(0, 0.9);
+    }
+
+    private void initFindings() {
+        this.findings = new Findings(() -> {
+            try {
+                String content = findingsFile.exists() ? FileUtils.readFileToString(findingsFile, StandardCharsets.UTF_8) : "";
+                FileUtils.write(findingsFile,
+                        content
+                                + "<finding>\n"
+                                + "<summary>" + findings.getSummary() + "</summary>\n\n"
+                                + "<body>\n" + findings.getContent() + "\n</body>\n"
+                                + "</finding>"
+                                + "\n\n\n"
+                        , StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public WebViewConsole getConsole() {
@@ -124,7 +130,7 @@ public class CodeBrowserPane extends SplitPane {
         reportMenu.getItems().add(getMenuItem("Update Overview Report...", e -> codeConfigurationView.generateFilesInScopeReport()));
         reportMenu.getItems().add(getMenuItem("Update Duplication Report...", e -> codeConfigurationView.generateDuplicationReport()));
         reportMenu.getItems().add(getMenuItem("Update Logical Decomposition Report...", e -> codeConfigurationView.generateLogicalDecompositionReport()));
-        reportMenu.getItems().add(getMenuItem("Update Cross Cutting Concerns Report...", e -> codeConfigurationView.generateCrossCuttingConcernsReport()));
+        reportMenu.getItems().add(getMenuItem("Update Concerns Report...", e -> codeConfigurationView.generateConcernsReport()));
         reportMenu.getItems().add(getMenuItem("Update File Size Report...", e -> codeConfigurationView.generateFileSizeReport()));
         reportMenu.getItems().add(getMenuItem("Update Unit Size Report...", e -> codeConfigurationView.generateUnitSizeReport()));
         reportMenu.getItems().add(getMenuItem("Update Conditional Complexity Report...", e -> codeConfigurationView.generateConditionalComplexity()));
@@ -181,8 +187,8 @@ public class CodeBrowserPane extends SplitPane {
         scopeAspectsTablePane.refresh(new ArrayList<>(), null);
         logicalComponentsTablePane.setAspectSelections(new ArrayList<>());
         logicalComponentsTablePane.refresh(new ArrayList<>(), null);
-        crossCuttingAspectsTablePane.setConcernsSelections(new ArrayList<>());
-        crossCuttingAspectsTablePane.refresh(new ArrayList<>(), null);
+        concernAspectsTablePane.setConcernsSelections(new ArrayList<>());
+        concernAspectsTablePane.refresh(new ArrayList<>(), null);
         aspectFilesBrowserPane.clear();
     }
 
@@ -209,17 +215,17 @@ public class CodeBrowserPane extends SplitPane {
             logicalDecompositions.add(new LogicalDecomposition("primary"));
         }
 
-        List<CrossCuttingConcernsGroup> crossCuttingConcerns = codeConfiguration.getCrossCuttingConcerns();
+        List<ConcernsGroup> concerns = codeConfiguration.getConcernGroups();
 
         List<Pair<String, List<NamedSourceCodeAspect>>> logicalDecompositionPairs = new ArrayList<>();
         logicalDecompositions.forEach(logicalDecomposition -> logicalDecompositionPairs.add(new ImmutablePair<>(logicalDecomposition.getName(), logicalDecomposition.getComponents())));
 
         List<NamedSourceCodeAspect> logicalComponents = logicalDecompositions.get(0).getComponents();
 
-        List<Pair<String, List<CrossCuttingConcern>>> concernsDecompositionPairs = new ArrayList<>();
-        List<CrossCuttingConcern> allConcerns = new ArrayList<>();
+        List<Pair<String, List<Concern>>> concernsDecompositionPairs = new ArrayList<>();
+        List<Concern> allConcerns = new ArrayList<>();
         concernsDecompositionPairs.add(0, new ImmutablePair<>("all", allConcerns));
-        codeConfiguration.getCrossCuttingConcerns().forEach(group -> {
+        codeConfiguration.getConcernGroups().forEach(group -> {
             concernsDecompositionPairs.add(new ImmutablePair<>(group.getName(), group.getConcerns()));
             group.getConcerns().forEach(concernInGroup -> {
                 concernInGroup.setName(group.getName() + ": " + concernInGroup.getName());
@@ -231,9 +237,9 @@ public class CodeBrowserPane extends SplitPane {
             scopeAspectsTablePane.refresh(scopesWithExtensions, codeConfiguration.getMain());
             logicalComponentsTablePane.setAspectSelections(logicalDecompositionPairs);
             logicalComponentsTablePane.refresh(logicalComponents, codeConfiguration.getMain());
-            crossCuttingAspectsTablePane.setConcernsSelections(concernsDecompositionPairs);
-            if (crossCuttingConcerns.size() > 0) {
-                crossCuttingAspectsTablePane.refresh(allConcerns, codeConfiguration.getMain());
+            concernAspectsTablePane.setConcernsSelections(concernsDecompositionPairs);
+            if (concerns.size() > 0) {
+                concernAspectsTablePane.refresh(allConcerns, codeConfiguration.getMain());
             }
         });
 
@@ -263,12 +269,12 @@ public class CodeBrowserPane extends SplitPane {
         this.logicalComponentsTablePane = logicalComponentsTablePane;
     }
 
-    public AspectsTablePane getCrossCuttingAspectsTablePane() {
-        return crossCuttingAspectsTablePane;
+    public AspectsTablePane getConcernAspectsTablePane() {
+        return concernAspectsTablePane;
     }
 
-    public void setCrossCuttingAspectsTablePane(AspectsTablePane crossCuttingAspectsTablePane) {
-        this.crossCuttingAspectsTablePane = crossCuttingAspectsTablePane;
+    public void setConcernAspectsTablePane(AspectsTablePane concernAspectsTablePane) {
+        this.concernAspectsTablePane = concernAspectsTablePane;
     }
 
     public CodeConfiguration getCodeConfiguration() {

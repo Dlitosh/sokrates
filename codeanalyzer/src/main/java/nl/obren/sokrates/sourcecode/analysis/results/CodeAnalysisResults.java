@@ -4,7 +4,9 @@
 
 package nl.obren.sokrates.sourcecode.analysis.results;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import nl.obren.sokrates.sourcecode.IgnoredFilesGroup;
+import nl.obren.sokrates.sourcecode.Metadata;
 import nl.obren.sokrates.sourcecode.SourceFile;
 import nl.obren.sokrates.sourcecode.core.CodeConfiguration;
 import nl.obren.sokrates.sourcecode.dependencies.Dependency;
@@ -15,7 +17,11 @@ import java.util.List;
 import java.util.Map;
 
 public class CodeAnalysisResults {
+    @JsonIgnore
     private CodeConfiguration codeConfiguration;
+
+    private Metadata metadata = new Metadata();
+
     private MetricsList metricsList = new MetricsList();
     private ControlsAnalysisResults controlResults = new ControlsAnalysisResults();
     private StringBuffer textSummary = new StringBuffer();
@@ -28,20 +34,33 @@ public class CodeAnalysisResults {
     private AspectAnalysisResults otherAspectAnalysisResults = new AspectAnalysisResults();
 
     private List<LogicalDecompositionAnalysisResults> logicalDecompositionsAnalysisResults = new ArrayList<>();
-    private List<CrossCuttingConcernsAnalysisResults> crossCuttingConcernsAnalysisResults = new ArrayList<>();
+    private List<ConcernsAnalysisResults> concernsAnalysisResults = new ArrayList<>();
 
+    @JsonIgnore
     private List<Dependency> allDependencies = new ArrayList<>();
 
     private FilesAnalysisResults filesAnalysisResults = new FilesAnalysisResults();
+    private FilesHistoryAnalysisResults filesHistoryAnalysisResults = new FilesHistoryAnalysisResults();
     private UnitsAnalysisResults unitsAnalysisResults = new UnitsAnalysisResults();
 
     private DuplicationAnalysisResults duplicationAnalysisResults = new DuplicationAnalysisResults();
+    private ContributorsAnalysisResults contributorsAnalysisResults = new ContributorsAnalysisResults();
 
     private int numberOfExcludedFiles;
     private Map<String, Integer> excludedExtensions;
     private long analysisStartTimeMs;
+    @JsonIgnore
     private List<SourceFile> filesExcludedByExtension;
+    @JsonIgnore
     private Map<String, IgnoredFilesGroup> ignoredFilesGroups;
+
+    public Metadata getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Metadata metadata) {
+        this.metadata = metadata;
+    }
 
     public MetricsList getMetricsList() {
         return metricsList;
@@ -59,10 +78,12 @@ public class CodeAnalysisResults {
         this.textSummary = textSummary;
     }
 
+    @JsonIgnore
     public CodeConfiguration getCodeConfiguration() {
         return codeConfiguration;
     }
 
+    @JsonIgnore
     public void setCodeConfiguration(CodeConfiguration codeConfiguration) {
         this.codeConfiguration = codeConfiguration;
     }
@@ -123,18 +144,20 @@ public class CodeAnalysisResults {
         this.logicalDecompositionsAnalysisResults = logicalDecompositionsAnalysisResults;
     }
 
-    public List<CrossCuttingConcernsAnalysisResults> getCrossCuttingConcernsAnalysisResults() {
-        return crossCuttingConcernsAnalysisResults;
+    public List<ConcernsAnalysisResults> getConcernsAnalysisResults() {
+        return concernsAnalysisResults;
     }
 
-    public void setCrossCuttingConcernsAnalysisResults(List<CrossCuttingConcernsAnalysisResults> crossCuttingConcernsAnalysisResults) {
-        this.crossCuttingConcernsAnalysisResults = crossCuttingConcernsAnalysisResults;
+    public void setConcernsAnalysisResults(List<ConcernsAnalysisResults> concernsAnalysisResults) {
+        this.concernsAnalysisResults = concernsAnalysisResults;
     }
 
+    @JsonIgnore
     public List<Dependency> getAllDependencies() {
         return allDependencies;
     }
 
+    @JsonIgnore
     public void setAllDependencies(List<Dependency> allDependencies) {
         this.allDependencies = allDependencies;
     }
@@ -145,6 +168,14 @@ public class CodeAnalysisResults {
 
     public void setFilesAnalysisResults(FilesAnalysisResults filesAnalysisResults) {
         this.filesAnalysisResults = filesAnalysisResults;
+    }
+
+    public FilesHistoryAnalysisResults getFilesHistoryAnalysisResults() {
+        return filesHistoryAnalysisResults;
+    }
+
+    public void setFilesHistoryAnalysisResults(FilesHistoryAnalysisResults filesHistoryAnalysisResults) {
+        this.filesHistoryAnalysisResults = filesHistoryAnalysisResults;
     }
 
     public UnitsAnalysisResults getUnitsAnalysisResults() {
@@ -217,19 +248,31 @@ public class CodeAnalysisResults {
         this.analysisStartTimeMs = analysisStartTimeMs;
     }
 
+    @JsonIgnore
     public void setFilesExcludedByExtension(List<SourceFile> filesExcludedByExtension) {
         this.filesExcludedByExtension = filesExcludedByExtension;
     }
 
+    @JsonIgnore
     public List<SourceFile> getFilesExcludedByExtension() {
         return filesExcludedByExtension;
     }
 
+    @JsonIgnore
     public void setIgnoredFilesGroups(Map<String, IgnoredFilesGroup> ignoredFilesGroups) {
         this.ignoredFilesGroups = ignoredFilesGroups;
     }
 
+    @JsonIgnore
     public Map<String, IgnoredFilesGroup> getIgnoredFilesGroups() {
         return ignoredFilesGroups;
+    }
+
+    public ContributorsAnalysisResults getContributorsAnalysisResults() {
+        return contributorsAnalysisResults;
+    }
+
+    public void setContributorsAnalysisResults(ContributorsAnalysisResults contributorsAnalysisResults) {
+        this.contributorsAnalysisResults = contributorsAnalysisResults;
     }
 }

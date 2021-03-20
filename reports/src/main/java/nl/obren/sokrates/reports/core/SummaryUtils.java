@@ -12,10 +12,13 @@ import nl.obren.sokrates.reports.utils.HtmlTemplateUtils;
 import nl.obren.sokrates.reports.utils.ReportUtils;
 import nl.obren.sokrates.sourcecode.analysis.results.CodeAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.FilesAnalysisResults;
+import nl.obren.sokrates.sourcecode.analysis.results.FilesHistoryAnalysisResults;
+import nl.obren.sokrates.sourcecode.core.CodeConfiguration;
 import nl.obren.sokrates.sourcecode.metrics.DuplicationMetric;
 import nl.obren.sokrates.sourcecode.metrics.MetricsWithGoal;
 import nl.obren.sokrates.sourcecode.metrics.NumericMetric;
 import nl.obren.sokrates.sourcecode.stats.RiskDistributionStats;
+import nl.obren.sokrates.sourcecode.stats.SourceFileAgeDistribution;
 import nl.obren.sokrates.sourcecode.stats.SourceFileSizeDistribution;
 
 import java.util.Arrays;
@@ -37,15 +40,33 @@ public class SummaryUtils {
     }
 
     public void summarize(CodeAnalysisResults analysisResults, RichTextReport report) {
+        CodeConfiguration config = analysisResults.getCodeConfiguration();
+
+        boolean mainExists = analysisResults.getMainAspectAnalysisResults().getFilesCount() > 0;
+        boolean showDuplication = mainExists && !config.getAnalysis().isSkipDuplication();
+        boolean showControls = mainExists && config.getGoalsAndControls().size() > 0;
+        boolean showUnits = mainExists && analysisResults.getUnitsAnalysisResults().getTotalNumberOfUnits() > 0;
+
         report.startDiv("width: 100%; overflow-x: auto");
         report.startTable("border: none; min-width: 800px; ");
         summarizeMainVolume(analysisResults, report);
-        summarizeDuplication(analysisResults, report);
-        summarizeFileSize(report, analysisResults);
-        summarizeUnitSize(analysisResults, report);
-        summarizeUnitComplexity(analysisResults, report);
-        summarizeComponents(analysisResults, report);
-        summarizeGoals(analysisResults, report);
+        if (mainExists) {
+            if (showDuplication) {
+                summarizeDuplication(analysisResults, report);
+            }
+            summarizeFileSize(report, analysisResults);
+            if (showUnits) {
+                summarizeUnitSize(analysisResults, report);
+                summarizeUnitComplexity(analysisResults, report);
+            }
+            summarizeComponents(analysisResults, report);
+        }
+        if (analysisResults.getFilesHistoryAnalysisResults().getHistory().size() > 0) {
+            summarizeFileChangeHistory(analysisResults, report);
+        }
+        if (showControls) {
+            summarizeGoals(analysisResults, report);
+        }
         addSummaryFindings(analysisResults, report);
         report.endTable();
         report.endDiv();
@@ -58,27 +79,31 @@ public class SummaryUtils {
             if (distribution != null) {
                 int mainLOC = analysisResults.getMainAspectAnalysisResults().getLinesOfCode();
                 int veryLongFilesLOC = distribution.getVeryHighRiskValue();
-                int shortFilesLOC = distribution.getLowRiskValue();
+                int shortFilesLOC = distribution.getLowRiskValue() + distribution.getNegligibleRiskValue();
 
                 report.startTableRow();
                 report.addTableCell(getIconSvg("file_size"), "border: none");
                 report.addTableCell(getRiskProfileVisual(distribution), "border: none");
                 report.addTableCell("File Size: <b>"
                         + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(mainLOC, veryLongFilesLOC))
-                        + "%</b> very long (>1000 LOC), <b>"
+                        + "%</b> long (>1000 LOC), <b>"
                         + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(mainLOC, shortFilesLOC))
-                        + "%</b> short (<= 200 LOC)", "border: none");
-                report.addTableCell("<a href='" + reportRoot + "FileSize.html'>...</a>", "border: none");
+                        + "%</b> short (<= 200 LOC)", "border: none; vertical-align: top; padding-top: 11px;");
+                report.addTableCell("<a href='" + reportRoot + "FileSize.html'  title='file size details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
                 report.endTableRow();
             }
         }
     }
 
-    private String getIconSvg(String icon) {
+    private String getIconSvg(String icon, int w, int h) {
         String svg = HtmlTemplateUtils.getResource("/icons/" + icon + ".svg");
-        svg = svg.replaceAll("height='.*?'", "height='40px'");
-        svg = svg.replaceAll("width='.*?'", "width='40px'");
+        svg = svg.replaceAll("height='.*?'", "height='" + w + "px'");
+        svg = svg.replaceAll("width='.*?'", "width='" + h + "px'");
         return svg;
+    }
+
+    private String getIconSvg(String icon) {
+        return getIconSvg(icon, 40, 40);
     }
 
     public void summarizeListOfLocAspects(StringBuilder summary, int totalLoc, List<NumericMetric> linesOfCodePerAspect) {
@@ -161,7 +186,7 @@ public class SummaryUtils {
         report.addHorizontalLine();
         report.addLineBreak();
 
-        // componentns
+        // components
         report.startDiv("color:black");
         summarizeComponents(analysisResults, report);
         report.endDiv();
@@ -189,8 +214,12 @@ public class SummaryUtils {
         StringBuilder summary = new StringBuilder("");
         summarizeMainCode(analysisResults, summary);
         report.addHtmlContent(summary.toString());
-        report.addTableCell("<a href='" + reportRoot + "SourceCodeOverview.html'>...</a>", "border: none");
+        report.addTableCell("<a href='" + reportRoot + "SourceCodeOverview.html'  title='volume details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
         report.endTableRow();
+    }
+
+    private String getDetailsIcon() {
+        return getIconSvg("details", 22, 22);
     }
 
     private void summarizeMainCode(CodeAnalysisResults analysisResults, StringBuilder summary) {
@@ -200,7 +229,7 @@ public class SummaryUtils {
         List<NumericMetric> linesOfCodePerExtension = analysisResults.getMainAspectAnalysisResults().getLinesOfCodePerExtension();
         summary.append("<div>" + getVolumeVisual(linesOfCodePerExtension, totalLoc, totalLoc, "") + "</div>");
         summary.append("</td>");
-        summary.append("<td  style='border: none'>Main Code: ");
+        summary.append("<td style='border: none; vertical-align: top; padding-top: 11px;'>Main Code: ");
         summary.append(RichTextRenderingUtils.renderNumberStrong(totalLoc) + " LOC");
         summarizeListOfLocAspects(summary, totalLoc, linesOfCodePerExtension);
         summary.append("</td>");
@@ -233,7 +262,7 @@ public class SummaryUtils {
         });
         report.endTableCell();
 
-        report.startTableCell("border: none");
+        report.startTableCell("border: none; vertical-align: top; padding-top: 11px;");
         report.addHtmlContent("Logical Component Decomposition:");
         boolean first[] = {true};
         analysisResults.getLogicalDecompositionsAnalysisResults().forEach(decomposition -> {
@@ -245,7 +274,39 @@ public class SummaryUtils {
             report.addHtmlContent(decomposition.getKey() + " (" + decomposition.getComponents().size() + " components)");
         });
         report.endTableCell();
-        report.addTableCell("<a href='" + reportRoot + "Components.html'>...</a>", "border: none");
+        report.addTableCell("<a href='" + reportRoot + "Components.html'  title='logical decomposition details'>" + getDetailsIcon() + "</a>",
+                "border: none;");
+
+        report.endTableRow();
+    }
+
+    private void summarizeFileChangeHistory(CodeAnalysisResults analysisResults, RichTextReport report) {
+        report.startTableRow();
+        report.addTableCell(getIconSvg("file_history"), "border: none;  vertical-align: top");
+
+        FilesHistoryAnalysisResults results = analysisResults.getFilesHistoryAnalysisResults();
+        report.startTableCell("border: none; padding-top: 4px; vertical-align: top");
+        SourceFileAgeDistribution age = results.getOverallFileFirstModifiedDistribution();
+        report.addContentInDiv(getRiskProfileVisual(age, Palette.getAgePalette()));
+        SourceFileAgeDistribution changes = results.getOverallFileLastModifiedDistribution();
+        report.addContentInDiv(getRiskProfileVisual(changes, Palette.getFreshnessPalette()));
+        report.endTableCell();
+
+        report.startTableCell("border: none; padding-top: 4px;");
+        String ageSummary = FormattingUtils.formatPeriod(results.getAgeInDays()) + " old";
+        report.addParagraph(ageSummary);
+        report.startUnorderedList();
+        report.addListItem("File Age Distribution: "
+                + FormattingUtils.getFormattedPercentage(age.getVeryHighRiskPercentage())
+                + "% older than a year, "
+                + FormattingUtils.getFormattedPercentage(age.getNegligibleRiskPercentage()) + "% less than a month");
+        report.addListItem("File Changes Distribution: "
+                + FormattingUtils.getFormattedPercentage(changes.getVeryHighRiskPercentage())
+                + "% more than a year ago, "
+                + FormattingUtils.getFormattedPercentage(changes.getNegligibleRiskPercentage()) + "% past month");
+        report.endUnorderedList();
+        report.endTableCell();
+        report.addTableCell("<a href='" + reportRoot + "FileAge.html'  title='file change history details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none;  vertical-align: top");
 
         report.endTableRow();
     }
@@ -256,7 +317,7 @@ public class SummaryUtils {
                 ? "darkgreen"
                 : upperCaseStatus.equals("FAILED")
                 ? "crimson"
-                : "orange";
+                : (upperCaseStatus.startsWith("IGNORE") ? "grey" : "orange");
     }
 
 
@@ -272,7 +333,7 @@ public class SummaryUtils {
         });
         report.endTableCell();
 
-        report.startTableCell("border: none");
+        report.startTableCell("border: none; vertical-align: top; padding-top: 11px;");
         report.addHtmlContent("Goals:");
         boolean first[] = {true};
         analysisResults.getControlResults().getGoalsAnalysisResults().forEach(goalsAnalysisResults -> {
@@ -285,7 +346,7 @@ public class SummaryUtils {
             report.addHtmlContent(metricsWithGoal.getGoal() + " (" + metricsWithGoal.getControls().size() + ")");
         });
         report.endTableCell();
-        report.addTableCell("<a href='" + reportRoot + "Controls.html'>...</a>", "border: none");
+        report.addTableCell("<a href='" + reportRoot + "Controls.html'  title='metrics &amp; goals details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
 
         report.endTableRow();
     }
@@ -293,19 +354,19 @@ public class SummaryUtils {
     private void summarizeUnitComplexity(CodeAnalysisResults analysisResults, RichTextReport report) {
         int linesOfCodeInUnits = analysisResults.getUnitsAnalysisResults().getLinesOfCodeInUnits();
         RiskDistributionStats distribution = analysisResults.getUnitsAnalysisResults().getConditionalComplexityRiskDistribution();
-        int veryComplexUnitsLOC = distribution.getVeryHighRiskValue();
-        int lowComplexUnitsLOC = distribution.getLowRiskValue();
+        int veryComplexUnitsLOC = distribution.getHighRiskValue() + distribution.getVeryHighRiskValue();
+        int lowComplexUnitsLOC = distribution.getNegligibleRiskValue();
 
         report.startTableRow();
         report.addTableCell(getIconSvg("conditional"), "border: none");
         report.addTableCell(getRiskProfileVisual(distribution), "border: none");
         report.addTableCell("Conditional Complexity: <b>"
                 + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(linesOfCodeInUnits, veryComplexUnitsLOC))
-                + "%</b> very complex (McCabe index > 25), <b>"
+                + "%</b> complex (McCabe index > 25), <b>"
                 + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(linesOfCodeInUnits, lowComplexUnitsLOC))
-                + "%</b> simple (McCabe index <= 5)", "border: none");
+                + "%</b> simple (McCabe index <= 5)", "border: none; vertical-align: top; padding-top: 11px;");
 
-        report.addTableCell("<a href='" + reportRoot + "ConditionalComplexity.html'>...</a>", "border: none");
+        report.addTableCell("<a href='" + reportRoot + "ConditionalComplexity.html'  title='conditional complexity details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
         report.endTableRow();
     }
 
@@ -313,17 +374,17 @@ public class SummaryUtils {
         int linesOfCodeInUnits = analysisResults.getUnitsAnalysisResults().getLinesOfCodeInUnits();
         RiskDistributionStats distribution = analysisResults.getUnitsAnalysisResults().getUnitSizeRiskDistribution();
         int veryLongUnitsLOC = distribution.getVeryHighRiskValue();
-        int lowUnitsLOC = distribution.getLowRiskValue();
+        int lowUnitsLOC = distribution.getLowRiskValue() + distribution.getNegligibleRiskValue();
 
         report.startTableRow();
         report.addTableCell(getIconSvg("unit_size"), "border: none");
         report.addTableCell(getRiskProfileVisual(distribution), "border: none");
         report.addTableCell("Unit Size: <b>"
                 + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(linesOfCodeInUnits, veryLongUnitsLOC))
-                + "%</b> very long (>100 LOC), <b>"
+                + "%</b> long (>100 LOC), <b>"
                 + FormattingUtils.getFormattedPercentage(RichTextRenderingUtils.getPercentage(linesOfCodeInUnits, lowUnitsLOC))
-                + "%</b> short (<= 20 LOC)", "border: none");
-        report.addTableCell("<a href='" + reportRoot + "UnitSize.html'>...</a>", "border: none");
+                + "%</b> short (<= 20 LOC)", "border: none; vertical-align: top; padding-top: 11px;");
+        report.addTableCell("<a href='" + reportRoot + "UnitSize.html'  title='unit size details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
         report.endTableRow();
     }
 
@@ -331,26 +392,24 @@ public class SummaryUtils {
         DuplicationMetric overallDuplication = analysisResults.getDuplicationAnalysisResults().getOverallDuplication();
         Number duplicationPercentage = overallDuplication.getDuplicationPercentage();
         double duplication = duplicationPercentage.doubleValue();
-        if (!analysisResults.getCodeConfiguration().getAnalysis().isSkipDuplication()) {
+        if (analysisResults.getCodeConfiguration() == null || !analysisResults.getCodeConfiguration().getAnalysis().isSkipDuplication()) {
             report.startTableRow();
             report.addTableCell(getIconSvg("duplication"), "border: none");
             report.addTableCell(getDuplicationVisual(duplicationPercentage), "border: none");
-            report.addTableCell("Duplication: <b>" + FormattingUtils.getFormattedPercentage(duplication) + "%</b>", "margin-bottom: 0;  border: none;");
-            report.addTableCell("<a href='" + reportRoot + "Duplication.html'>...</a>", "border: none");
+            report.addTableCell("Duplication: <b>" + FormattingUtils.getFormattedPercentage(duplication) + "%</b>", "margin-bottom: 0;  border: none; vertical-align: top; padding-top: 11px;");
+            report.addTableCell("<a href='" + reportRoot + "Duplication.html'  title='duplication details' style='vertical-align: top'>" + getDetailsIcon() + "</a>", "border: none");
             report.endTableRow();
         }
     }
 
     private String getVolumeVisual(List<NumericMetric> linesOfCodePerExtension, int totalLoc, int mainLoc, String text) {
-
-        int barWidth = (int) ((double) BAR_WIDTH * totalLoc / mainLoc);
+        int barWidth = Math.min(BAR_WIDTH, (int) ((double) BAR_WIDTH * totalLoc / mainLoc));
         SimpleOneBarChart chart = new SimpleOneBarChart();
         chart.setWidth(barWidth);
         chart.setBarHeight(BAR_HEIGHT);
         chart.setMaxBarWidth(barWidth);
         chart.setBarStartXOffset(0);
         chart.setFontSize("small");
-
 
         List<Integer> values = linesOfCodePerExtension.stream().map(metric -> metric.getValue().intValue()).collect(Collectors.toList());
         Collections.sort(values);
@@ -359,16 +418,24 @@ public class SummaryUtils {
     }
 
     private String getRiskProfileVisual(RiskDistributionStats distributionStats) {
+        return getRiskProfileVisual(distributionStats, Palette.getRiskPalette());
+    }
+
+    private String getRiskProfileVisual(RiskDistributionStats distributionStats, Palette palette) {
         SimpleOneBarChart chart = new SimpleOneBarChart();
         chart.setWidth(BAR_WIDTH + 20);
         chart.setBarHeight(BAR_HEIGHT);
         chart.setMaxBarWidth(BAR_WIDTH);
         chart.setBarStartXOffset(0);
 
-        List<Integer> values = Arrays.asList(distributionStats.getVeryHighRiskValue(),
-                distributionStats.getHighRiskValue(), distributionStats.getMediumRiskValue(), distributionStats.getLowRiskValue());
+        List<Integer> values = Arrays.asList(
+                distributionStats.getVeryHighRiskValue(),
+                distributionStats.getHighRiskValue(),
+                distributionStats.getMediumRiskValue(),
+                distributionStats.getLowRiskValue(),
+                distributionStats.getNegligibleRiskValue());
 
-        return chart.getStackedBarSvg(values, Palette.getRiskPalette(), "", "");
+        return chart.getStackedBarSvg(values, palette, "", "");
     }
 
     private String getDuplicationVisual(Number duplicationPercentage) {

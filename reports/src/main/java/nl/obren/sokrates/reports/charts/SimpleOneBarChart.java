@@ -9,11 +9,11 @@ import nl.obren.sokrates.common.renderingutils.charts.Palette;
 import java.util.List;
 
 public class SimpleOneBarChart {
-    private String backgroundColor = "#898989";
+    private String backgroundColor = "#ffffff";
     private String activeColor = "#00aced";
     private Alignment alignment = Alignment.LEFT;
-    private String backgroundStyle = "fill-opacity:0.4;stroke:#898989;stroke-width:0;";
-    private String activeStyle = "fill:#c0deed;stroke:#898989;stroke-width:0;";
+    private String backgroundStyle = "fill-opacity:0.4;stroke:#a0a0a0;stroke-width:0.5px;";
+    private String activeStyle = "fill:#c0deed;stroke:#898989;stroke-width:0.5;";
     private int width = 800;
     private int maxBarWidth = 200;
     private int barHeight = 20;
@@ -26,25 +26,34 @@ public class SimpleOneBarChart {
 
         leftTexts.forEach(text -> barStartXOffset = Math.max(barStartXOffset, 20 + text.length() * 8));
 
-        barStartXOffset =  Math.min(400, barStartXOffset);
-        barStartXOffset =  Math.max(100, barStartXOffset);
+        barStartXOffset = Math.min(400, barStartXOffset);
+        barStartXOffset = Math.max(100, barStartXOffset);
     }
 
     public String getStackedBarSvg(List<Integer> values, Palette palette, String textLeft, String textRight) {
-        String svg = "<svg width='" + width + "' height='" + (barHeight + 2) + "'>";
+        String svg = "<svg width='" + width + "' height='" + (barHeight + 4) + "'>";
 
-        double sum = values.stream().mapToDouble(Number::doubleValue).sum();
+        double sum = values.stream().mapToDouble(n -> n.doubleValue()).sum();
 
         svg += getBackgroundBarSvg(maxBarWidth);
 
         int x = barStartXOffset;
 
         for (int i = 0; i < values.size(); i++) {
-            int value = values.get(i).intValue();
+            double value = values.get(i).doubleValue();
             String color = palette.nextColor();
-            if (value > 0) {
-                int barSize = (int) (maxBarWidth * value / sum);
-                svg += getBarSvg(x, barSize, color);
+            if (value > 0.0000000001) {
+                int barSize = (int) (maxBarWidth * (value / sum));
+                if (barSize == 0 && value > 0) {
+                    barSize = 1;
+                }
+                if (x < maxBarWidth + barStartXOffset) {
+                    if (x + barSize <= maxBarWidth + barStartXOffset) {
+                        svg += getBarSvg(x, barSize, color);
+                    } else {
+                        svg += getBarSvg(x, maxBarWidth + barStartXOffset - x, color);
+                    }
+                }
                 x += barSize;
             }
         }
@@ -64,7 +73,7 @@ public class SimpleOneBarChart {
         for (int i = 0; i < labels.size(); i++) {
             String label = labels.get(i);
             String color = palette.nextColor();
-            html += "<div style='margin: 4px; vertical-align:middle;display:inline-block;width:30px;height:14px;background-color:" + color + "'></div>";
+            html += "<div style='margin: 4px; vertical-align:middle;display:inline-block;width:14px;height:14px;background-color:" + color + "; border: 1px solid #a0a0a0;'></div>";
             html += "<div style='margin-right:10px; display:inline-block'>" + label + "</div>";
         }
 
@@ -88,7 +97,7 @@ public class SimpleOneBarChart {
     }
 
     public String getSvg(double activeBarSize, String textLeft, String textRight) {
-        String svg = "<svg width='" + width + "' height='" + (barHeight + 2) + "'>";
+        String svg = "<svg width='" + width + "' height='" + (barHeight + 4) + "'>";
 
         svg += getBackgroundBarSvg(maxBarWidth);
         svg += getBarSvg((int) (activeBarSize));
@@ -145,7 +154,7 @@ public class SimpleOneBarChart {
         return "<rect" +
                 " x='" + barStartXOffset + "'" +
                 " y='2'" +
-                " width='" + backgroundBarSize + "'" +
+                " width='" + ((int) backgroundBarSize) + "'" +
                 " height='" + barHeight + "'" +
                 " style='" + backgroundStyle + "fill:" + backgroundColor + "'" +
                 "/>";

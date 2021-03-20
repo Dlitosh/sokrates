@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class DuplicationAnalyzer extends Analyzer {
+    public static final int LIST_LIMIT = 50;
     private final StringBuffer textSummary;
     private final CodeConfiguration codeConfiguration;
     private final MetricsList metricsList;
@@ -47,7 +48,7 @@ public class DuplicationAnalyzer extends Analyzer {
         this.progressFeedback = progressFeedback;
         progressFeedback.start();
         progressFeedback.setDetailedText("");
-        AnalysisUtils.info(textSummary, progressFeedback, "Extracting duplication...", start);
+        AnalysisUtils.info(textSummary, progressFeedback, "Analysing duplication...", start);
         List<DuplicationInstance> duplicates = new DuplicationEngine().findDuplicates(main.getSourceFiles(), new ProgressFeedback());
 
         analysisResults.setAllDuplicates(duplicates);
@@ -95,7 +96,7 @@ public class DuplicationAnalyzer extends Analyzer {
         });
 
         Collections.sort(duplicates, (o1, o2) -> -new Integer(o1.getDuplicatedFileBlocks().size()).compareTo(o2.getDuplicatedFileBlocks().size()));
-        for (int i = 0; i < Math.min(20, duplicates.size()); i++) {
+        for (int i = 0; i < Math.min(LIST_LIMIT, duplicates.size()); i++) {
             DuplicationInstance duplicate = duplicates.get(i);
             if (duplicate.getDuplicatedFileBlocks().size() > 2) {
                 analysisResults.getMostFrequentDuplicates().add(duplicate);
@@ -103,7 +104,7 @@ public class DuplicationAnalyzer extends Analyzer {
         }
 
         Collections.sort(duplicates, (o1, o2) -> -new Integer(o1.getBlockSize()).compareTo(o2.getBlockSize()));
-        for (int i = 0; i < Math.min(20, duplicates.size()); i++) {
+        for (int i = 0; i < Math.min(LIST_LIMIT, duplicates.size()); i++) {
             analysisResults.getLongestDuplicates().add(duplicates.get(i));
         }
     }
@@ -113,22 +114,16 @@ public class DuplicationAnalyzer extends Analyzer {
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_DUPLICATED_LINES") + suffix)
                 .description("Number of duplicated lines")
-                .scope(Metric.Scope.EXTENSION)
-                .scopeQualifier(extensionDuplication.getExtension())
                 .value(extensionDuplication.getDuplicatedLinesOfCode());
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_CLEANED_LINES") + suffix)
                 .description("Number of lines after cleaning for duplication calculations")
-                .scope(Metric.Scope.EXTENSION)
-                .scopeQualifier(extensionDuplication.getExtension())
                 .value(extensionDuplication.getCleanedLinesOfCode());
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_PERCENTAGE") + suffix)
                 .description("Duplication percentage")
-                .scope(Metric.Scope.EXTENSION)
-                .scopeQualifier(extensionDuplication.getExtension())
                 .value(100.0 * extensionDuplication.getDuplicatedLinesOfCode() / extensionDuplication.getCleanedLinesOfCode());
 
         AnalysisUtils.detailedInfo(textSummary, progressFeedback, "     - \"" + extensionDuplication.getExtension() + "\": " + extensionDuplication.getDuplicatedLinesOfCode() + " duplicated lines vs. " +
@@ -147,22 +142,16 @@ public class DuplicationAnalyzer extends Analyzer {
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_DUPLICATED_LINES") + suffix)
                 .description("Number of duplicated lines")
-                .scope(Metric.Scope.LOGICAL_COMPONENT)
-                .scopeQualifier(suffix)
                 .value(componentDuplication.getDuplicatedLinesOfCode());
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_CLEANED_LINES") + suffix)
                 .description("Number of lines after cleaning for duplication calculations")
-                .scope(Metric.Scope.LOGICAL_COMPONENT)
-                .scopeQualifier(suffix)
                 .value(componentDuplication.getDuplicatedLinesOfCode());
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_PERCENTAGE") + suffix)
                 .description("Duplication percentage")
-                .scope(Metric.Scope.LOGICAL_COMPONENT)
-                .scopeQualifier(suffix)
                 .value(100.0 * componentDuplication.getDuplicatedLinesOfCode() / componentDuplication.getDuplicatedLinesOfCode());
     }
 
@@ -174,31 +163,26 @@ public class DuplicationAnalyzer extends Analyzer {
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_DUPLICATES"))
                 .description("Number of duplicates")
-                .scope(Metric.Scope.SYSTEM)
                 .value(numberOfDuplicates);
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_FILES_WITH_DUPLICATES"))
                 .description("Number of files with duplicates")
-                .scope(Metric.Scope.SYSTEM)
                 .value(numberOfFilesWithDuplicates);
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_DUPLICATED_LINES"))
                 .description("Number of duplicated lines")
-                .scope(Metric.Scope.SYSTEM)
                 .value(numberOfDuplicatedLines);
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_NUMBER_OF_CLEANED_LINES"))
                 .description("Number of lines after cleaning for duplication calculations")
-                .scope(Metric.Scope.SYSTEM)
                 .value(totalNumberOfCleanedLines);
 
         metricsList.addMetric()
                 .id(AnalysisUtils.getMetricId("DUPLICATION_PERCENTAGE"))
                 .description("Duplication percentage")
-                .scope(Metric.Scope.SYSTEM)
                 .value(100.0 * numberOfDuplicatedLines / totalNumberOfCleanedLines);
     }
 

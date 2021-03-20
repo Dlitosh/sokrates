@@ -41,7 +41,7 @@ public class ScopingConventions {
     private static void printText(String s, List<Convention> ignoredFilesConventions, String s2) {
         System.out.println(s);
         ignoredFilesConventions.forEach(convention -> {
-            System.out.println(s2 + convention.getFilter().toString() + " (" + convention.getFilter().getNote() + ")");
+            System.out.println(s2 + convention.toString() + " (" + convention.getNote() + ")");
         });
         System.out.println();
     }
@@ -72,8 +72,8 @@ public class ScopingConventions {
         otherFilesConventions.add(new Convention(".*[.]workbook", "", "Markdown files"));
 
         otherFilesConventions.add(new Convention(".*[.]json", "", "JSON files"));
-        otherFilesConventions.add(new Convention(".*[.]yml", "", "YAML files"));
-        otherFilesConventions.add(new Convention(".*[.]yaml", "", "YAML files"));
+        // otherFilesConventions.add(new Convention(".*[.]yml", "", "YAML files"));
+        // otherFilesConventions.add(new Convention(".*[.]yaml", "", "YAML files"));
 
         otherFilesConventions.add(new Convention(".*[.]svg", "", "SVG files"));
 
@@ -95,6 +95,11 @@ public class ScopingConventions {
         otherFilesConventions.add(new Convention(".*/[.]cpplint[.]py", "", "Linter"));
 
         otherFilesConventions.add(new Convention(".*/Jenkinsfile", "", "Jenkinsfile"));
+
+        otherFilesConventions.add(new Convention(".*[.]storyboard", "", "Storyboard"));
+        otherFilesConventions.add(new Convention(".*[.]xib", "", "XIB files"));
+
+        otherFilesConventions.add(new Convention(".*[.]bash_[a-z]+", "", "Bash files"));
 
         // config
         otherFilesConventions.add(new Convention(".*[.]apacheconf", "", "Configuration"));
@@ -166,14 +171,22 @@ public class ScopingConventions {
 
 
         otherFilesConventions.add(new Convention(".*/[Dd]ocumentation/.*", "", "Documentation"));
+        otherFilesConventions.add(new Convention(".*/asciidoc/.*", "", "Documentation"));
         otherFilesConventions.add(new Convention(".*/[Mm]an/.*", "", "Documentation"));
         otherFilesConventions.add(new Convention(".*/[Ee]xamples/.*", "", "Documentation"));
         otherFilesConventions.add(new Convention(".*/[Ss]amples/.*", "", "Samples"));
         otherFilesConventions.add(new Convention(".*/[Dd]emos?/.*", "", "Documentation"));
+        otherFilesConventions.add(new Convention(".*[.]3pm", "", "Manual pages"));
+        otherFilesConventions.add(new Convention(".*[.]vim", "", "vim editor config"));
+
+        otherFilesConventions.add(new Convention(".*[.]_js", "", ""));
+        otherFilesConventions.add(new Convention(".*[.]sublime-project", "", ""));
+        otherFilesConventions.add(new Convention(".*[.]ini", "", "INI files"));
     }
 
     private void addBuildAndDeploymentConventions() {
         buildAndDeploymentFilesConventions.add(new Convention(".*/pom[.]xml", "", "Maven configuration"));
+        buildAndDeploymentFilesConventions.add(new Convention(".*[.]nuspec", "", "NuSpec configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*/build[.]xml", "", "Build configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*/assembly[.]xml", "", "Maven assembly plugin configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*/assembly/src[.]xml", "", "Maven assembly plugin configuration"));
@@ -189,7 +202,6 @@ public class ScopingConventions {
         buildAndDeploymentFilesConventions.add(new Convention(".*/glide[.]lock", "", "Glide configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*/docker[-]compose[.]yaml", "", "Docker configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*/docker[-]compose[.]yml", "", "Docker configuration"));
-        buildAndDeploymentFilesConventions.add(new Convention(".*[.]thrift", "", "Docker configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]dockerfile", "", "Docker configuration"));
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]mk", "", "Mk files"));
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]cvsignore", "", "CVS configuration files"));
@@ -206,6 +218,9 @@ public class ScopingConventions {
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]make", "", "Make files"));
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]mk", "", "Make files"));
         buildAndDeploymentFilesConventions.add(new Convention(".*[.]mkfile", "", "Make files"));
+        buildAndDeploymentFilesConventions.add(new Convention(".*[.]dotsettings", "", ".Net settings files"));
+        buildAndDeploymentFilesConventions.add(new Convention(".*/jenkins/.*[.]groovy", "", "Jenkins files"));
+        buildAndDeploymentFilesConventions.add(new Convention(".*/fastlane/.*[.]rb", "", "Fastlane files"));
     }
 
     private void addGeneratedConventions() {
@@ -215,6 +230,7 @@ public class ScopingConventions {
         generatedFilesConventions.add(new Convention(".*/_generated_/.*", "", defaultNote));
         generatedFilesConventions.add(new Convention(".*/_generated/.*", "", defaultNote));
         generatedFilesConventions.add(new Convention(".*/__generated__/.*", "", defaultNote));
+        generatedFilesConventions.add(new Convention(".*/gen/.*[.]go", "", "Generated Go files"));
 
         generatedFilesConventions.add(new Convention(".*/npm[-]shrinkwrap[.]json", "", "A generated npm shrinkwrap file"));
         generatedFilesConventions.add(new Convention(".*/package[-]lock[.]json", "", "A generated npm package lock file"));
@@ -264,9 +280,23 @@ public class ScopingConventions {
     private void addTestConventions() {
         String defaultNote = "Test files";
         testFilesConventions.add(new Convention(".*/[Tt]est/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/[Tt]est/.*", "", defaultNote));
         testFilesConventions.add(new Convention(".*/[Tt]ests/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*[.][Tt]est/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*[.][Tt]ests/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*[.][Tt]est[.].*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*[.][Tt]ests[.].*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/UnitTests?/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/IntegrationTests?/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/UITests?/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/src/testPlay/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/src/ciTest/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/src/ciTests/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/src/androidTest/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/src/androidTests/.*", "", defaultNote));
         testFilesConventions.add(new Convention(".*/[Ss]pecs/.*", "", defaultNote));
         testFilesConventions.add(new Convention(".*[-]tests/.*", "", defaultNote));
+        testFilesConventions.add(new Convention(".*/test[-]data/.*", "", defaultNote));
         testFilesConventions.add(new Convention(".*_test[.].*", "", defaultNote));
         testFilesConventions.add(new Convention(".*_tests[.].*", "", defaultNote));
         testFilesConventions.add(new Convention(".*[.]test[.].*", "", defaultNote));
@@ -286,9 +316,18 @@ public class ScopingConventions {
         testFilesConventions.add(new Convention(".*/protractor[.]conf[.]js", "", "Protractor test files"));
         testFilesConventions.add(new Convention(".*/e2e/.*", "", "Protractor test files"));
 
+        testFilesConventions.add(new Convention(".*/RestAPIClientTests/.*", "", "API test files"));
+        testFilesConventions.add(new Convention(".*/ViewTests/.*", "", "Test files"));
+
         testFilesConventions.add(new Convention(".*/test[-]resources/.*", "", "Test resources"));
+        testFilesConventions.add(new Convention(".*/TestData/.*", "", "Test data"));
+        testFilesConventions.add(new Convention(".*/__mocks?__/.*", "", "Mock resources"));
+        testFilesConventions.add(new Convention(".*/mockapi/.*", "", "Mock resources"));
+        testFilesConventions.add(new Convention(".*/mock[-]server/.*", "", "Mock resources"));
 
         testFilesConventions.add(new Convention(".*[.]snap", "", "Jest snapshots"));
+        testFilesConventions.add(new Convention(".*/TestUtilities/.*", "", "Test utilities"));
+        testFilesConventions.add(new Convention(".*/Mocks/.*", "", "Mocks"));
     }
 
     private void addIgnoreConventions() {
@@ -329,6 +368,9 @@ public class ScopingConventions {
         ignoredFilesConventions.add(new Convention(".*/bulma[.](css|sass|scss)", "", "Bulma css"));
         ignoredFilesConventions.add(new Convention(".*[.]min[.]js", "", "Minimized JS library"));
         ignoredFilesConventions.add(new Convention(".*[.]css[.]js", "", "Minimized CSS library"));
+        ignoredFilesConventions.add(new Convention(".*tiny_mce_src[.]js", "", "Tiny MCE JS library"));
+        ignoredFilesConventions.add(new Convention(".*/js/yui/.*", "", "YUI JS library"));
+        ignoredFilesConventions.add(new Convention(".*/js/flotr/.*", "", "Flotr JS library"));
         ignoredFilesConventions.add(new Convention(".*[.]import[.](css|less|scss|styl)", "", "Stylesheets imported from packages"));
         ignoredFilesConventions.add(new Convention(".*font-?awesome\\.(css|less|scss|styl)", "", "Font Awesome"));
         ignoredFilesConventions.add(new Convention(".*font-?awesome/.*\\.(css|less|scss|styl)", "", "Font Awesome"));
@@ -358,6 +400,7 @@ public class ScopingConventions {
 
         ignoredFilesConventions.add(new Convention(".*/_sokrates/.*", "", "Sokrates files"));
         ignoredFilesConventions.add(new Convention(".*/_sokrates_landscape/.*", "", "Sokrates landscape files"));
+        ignoredFilesConventions.add(new Convention(".*/git[-][a-zA-Z0-9_]+[.]txt", "", "Git data exports for sokrates analyses"));
 
         ignoredFilesConventions.add(new Convention(".*/testdata/.*", "", "Test data"));
         ignoredFilesConventions.add(new Convention(".*/Godeps/_workspace/.*", "", "Go dependencies"));
@@ -464,5 +507,48 @@ public class ScopingConventions {
         ignoredFilesConventions.add(new Convention(".*/[Gg]roovydoc/.*", "", "Generated documentation"));
         ignoredFilesConventions.add(new Convention(".*/[Jj]avadoc/.*", "", "Generated documentation"));
         ignoredFilesConventions.add(new Convention(".*/inst/doc/.*", "", "Generated documentation"));
+
+        ignoredFilesConventions.add(new Convention(".*/Thumbs[.]db", "", "Thumbs.db"));
+        ignoredFilesConventions.add(new Convention(".*/__MACOSX/.*", "", "__MACOSX folder"));
+    }
+
+    public List<Convention> getIgnoredFilesConventions() {
+        return ignoredFilesConventions;
+    }
+
+    public void setIgnoredFilesConventions(List<Convention> ignoredFilesConventions) {
+        this.ignoredFilesConventions = ignoredFilesConventions;
+    }
+
+    public List<Convention> getTestFilesConventions() {
+        return testFilesConventions;
+    }
+
+    public void setTestFilesConventions(List<Convention> testFilesConventions) {
+        this.testFilesConventions = testFilesConventions;
+    }
+
+    public List<Convention> getGeneratedFilesConventions() {
+        return generatedFilesConventions;
+    }
+
+    public void setGeneratedFilesConventions(List<Convention> generatedFilesConventions) {
+        this.generatedFilesConventions = generatedFilesConventions;
+    }
+
+    public List<Convention> getBuildAndDeploymentFilesConventions() {
+        return buildAndDeploymentFilesConventions;
+    }
+
+    public void setBuildAndDeploymentFilesConventions(List<Convention> buildAndDeploymentFilesConventions) {
+        this.buildAndDeploymentFilesConventions = buildAndDeploymentFilesConventions;
+    }
+
+    public List<Convention> getOtherFilesConventions() {
+        return otherFilesConventions;
+    }
+
+    public void setOtherFilesConventions(List<Convention> otherFilesConventions) {
+        this.otherFilesConventions = otherFilesConventions;
     }
 }

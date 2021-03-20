@@ -88,7 +88,7 @@ public class OverviewReportGenerator {
         String extra = "";
         extra += "<ul>";
         extra += "<li>The <b>main</b> category contains all <b>manually</b> created source code files that are being used in the <b>production</b>.</li>";
-        extra += "<li>Files in the <b>main</b> category are used as input for other analyses: logical decomposition, cross-cutting concerns, duplication, file size, unit size, and conditional complexity.</li>";
+        extra += "<li>Files in the <b>main</b> category are used as input for other analyses: logical decomposition, concerns, duplication, file size, unit size, and conditional complexity.</li>";
         extra += "<li><b>Test</b> source code files are used only for testing of the product. These files are normally not deployed to production.</li>";
         extra += "<li><b>Build and deployment</b> source code files are used to configure or support build and deployment process.</li>";
         extra += "<li><b>Generated</b> source code files are automatically generated files that have not been manually changed after generation.</li>";
@@ -183,8 +183,8 @@ public class OverviewReportGenerator {
         report.addListItem(RichTextRenderingUtils.renderNumberStrong(numberOfExcludedFiles) + " files are excluded from analyses:");
         report.startUnorderedList();
         int filesExcludedByExtensionCount = codeAnalysisResults.getFilesExcludedByExtension().size();
-        report.addListItem("<a href='../data/excluded_files_ignored_extensions.txt'>" + RichTextRenderingUtils.renderNumberStrong(filesExcludedByExtensionCount) + " based on extension</a>.");
-        report.addListItem("<a href='../data/excluded_files_ignored_rules.txt'>" +RichTextRenderingUtils.renderNumberStrong(numberOfExcludedFiles - filesExcludedByExtensionCount) + " based on ignore rules</a>.");
+        report.addListItem("<a href='../data/text/excluded_files_ignored_extensions.txt'>" + RichTextRenderingUtils.renderNumberStrong(filesExcludedByExtensionCount) + " based on extension</a>.");
+        report.addListItem("<a href='../data/text/excluded_files_ignored_rules.txt'>" +RichTextRenderingUtils.renderNumberStrong(numberOfExcludedFiles - filesExcludedByExtensionCount) + " based on ignore rules</a>.");
         report.endUnorderedList();
         report.endUnorderedList();
 
@@ -204,7 +204,7 @@ public class OverviewReportGenerator {
     }
 
     private String describeExclusion(SourceFileFilter exclusion) {
-        String description = !exclusion.getInclude() ? "do not exclude" : "exclude";
+        String description = exclusion.getException() ? "do not exclude" : "exclude";
         description += " files with ";
         boolean add = false;
         if (StringUtils.isNotBlank(exclusion.getPathPattern())) {

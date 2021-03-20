@@ -25,11 +25,15 @@ public class LogicalDecomposition {
     private int componentsFolderDepth = 1;
     private List<NamedSourceCodeAspect> components = new ArrayList<>();
     private List<MetaRule> metaComponents = new ArrayList<>();
+    private List<GroupingRule> groups = new ArrayList<>();
     private boolean includeRemainingFiles = true;
     private DependenciesFinder dependenciesFinder = new DependenciesFinder();
     private RenderingOptions renderingOptions = new RenderingOptions();
     private boolean includeExternalComponents = true;
+    private int dependencyLinkThreshold = 1;
     private int duplicationLinkThreshold = 50;
+    private int temporalLinkThreshold = 2;
+    private int maxSearchDepthLines = 200;
 
     public LogicalDecomposition() {
     }
@@ -91,7 +95,6 @@ public class LogicalDecomposition {
         MetaRulesProcessor helper = MetaRulesProcessor.getLogicalDecompositionInstance();
         List<NamedSourceCodeAspect> metaComponents = helper.extractAspects(getSourceFiles(codeConfiguration), this.metaComponents);
         components.addAll(metaComponents);
-
         CodeConfigurationUtils.populateUnclassifiedAndMultipleAspectsFiles(components,
                 (includeRemainingFiles ? allSourceFiles : filteredSourceFiles),
                 sourceFileAspectPair -> {
@@ -127,7 +130,7 @@ public class LogicalDecomposition {
             boolean[] inScope = {false};
             filters.forEach(filter -> {
                 if (filter.matches(sourceFile)) {
-                    if (filter.getInclude()) {
+                    if (!filter.getException()) {
                         inScope[0] = true;
                     } else {
                         inScope[0] = false;
@@ -187,6 +190,14 @@ public class LogicalDecomposition {
         return first.isPresent() ? first.get() : null;
     }
 
+    public int getDependencyLinkThreshold() {
+        return dependencyLinkThreshold;
+    }
+
+    public void setDependencyLinkThreshold(int dependencyLinkThreshold) {
+        this.dependencyLinkThreshold = dependencyLinkThreshold;
+    }
+
     public int getDuplicationLinkThreshold() {
         return duplicationLinkThreshold;
     }
@@ -201,5 +212,29 @@ public class LogicalDecomposition {
 
     public void setIncludeExternalComponents(boolean includeExternalComponents) {
         this.includeExternalComponents = includeExternalComponents;
+    }
+
+    public int getTemporalLinkThreshold() {
+        return temporalLinkThreshold;
+    }
+
+    public void setTemporalLinkThreshold(int temporalLinkThreshold) {
+        this.temporalLinkThreshold = temporalLinkThreshold;
+    }
+
+    public int getMaxSearchDepthLines() {
+        return maxSearchDepthLines;
+    }
+
+    public void setMaxSearchDepthLines(int maxSearchDepthLines) {
+        this.maxSearchDepthLines = maxSearchDepthLines;
+    }
+
+    public List<GroupingRule> getGroups() {
+        return groups;
+    }
+
+    public void setGroups(List<GroupingRule> groups) {
+        this.groups = groups;
     }
 }

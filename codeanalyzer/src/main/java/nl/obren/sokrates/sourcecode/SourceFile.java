@@ -7,8 +7,10 @@ package nl.obren.sokrates.sourcecode;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import nl.obren.sokrates.sourcecode.aspects.NamedSourceCodeAspect;
 import nl.obren.sokrates.sourcecode.cleaners.SourceCodeCleanerUtils;
+import nl.obren.sokrates.sourcecode.filehistory.FileModificationHistory;
 import nl.obren.sokrates.sourcecode.lang.LanguageAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.LanguageAnalyzerFactory;
+import nl.obren.sokrates.sourcecode.stats.RiskDistributionStats;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -32,12 +34,18 @@ public class SourceFile {
     private String relativePath;
     private String extension;
     private int linesOfCode;
+    @JsonIgnore
+    private FileModificationHistory fileModificationHistory = null;
     private int unitsCount = 0;
     private int unitsMcCabeIndexSum = 0;
+    @JsonIgnore
     private List<NamedSourceCodeAspect> logicalComponents = new ArrayList<>();
-    private List<NamedSourceCodeAspect> crossCuttingConcerns = new ArrayList<>();
+    @JsonIgnore
+    private List<NamedSourceCodeAspect> concerns = new ArrayList<>();
+
     @JsonIgnore
     private String content;
+
     private int linesOfCodeInUnits;
 
     public SourceFile() {
@@ -100,26 +108,38 @@ public class SourceFile {
         this.linesOfCode = linesOfCode;
     }
 
+    public FileModificationHistory getFileModificationHistory() {
+        return fileModificationHistory;
+    }
+
+    public void setFileModificationHistory(FileModificationHistory fileModificationHistory) {
+        this.fileModificationHistory = fileModificationHistory;
+    }
+
     public List<NamedSourceCodeAspect> getLogicalComponents(String filer) {
         List<NamedSourceCodeAspect> filteredLogicalComponents = new ArrayList<>();
         logicalComponents.stream().filter(comp -> comp.getFiltering().equals(filer)).forEach(filteredLogicalComponents::add);
         return filteredLogicalComponents;
     }
 
+    @JsonIgnore
     public List<NamedSourceCodeAspect> getLogicalComponents() {
         return logicalComponents;
     }
 
+    @JsonIgnore
     public void setLogicalComponents(List<NamedSourceCodeAspect> logicalComponents) {
         this.logicalComponents = logicalComponents;
     }
 
-    public List<NamedSourceCodeAspect> getCrossCuttingConcerns() {
-        return crossCuttingConcerns;
+    @JsonIgnore
+    public List<NamedSourceCodeAspect> getConcerns() {
+        return concerns;
     }
 
-    public void setCrossCuttingConcerns(List<NamedSourceCodeAspect> crossCuttingConcerns) {
-        this.crossCuttingConcerns = crossCuttingConcerns;
+    @JsonIgnore
+    public void setConcerns(List<NamedSourceCodeAspect> concerns) {
+        this.concerns = concerns;
     }
 
     public int getUnitsCount() {
@@ -192,11 +212,27 @@ public class SourceFile {
         return ((SourceFile) obj).getFile().equals(this.getFile());
     }
 
+    public int getLinesOfCodeInUnits() {
+        return linesOfCodeInUnits;
+    }
+
     public void setLinesOfCodeInUnits(int linesOfCodeInUnits) {
         this.linesOfCodeInUnits = linesOfCodeInUnits;
     }
 
-    public int getLinesOfCodeInUnits() {
-        return linesOfCodeInUnits;
+    @JsonIgnore
+    public boolean isInLogicalComponent(String name) {
+        for (NamedSourceCodeAspect logicalComponent : logicalComponents) {
+            if (logicalComponent.getName().equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
     }
+
+    @JsonIgnore
+    public long getLongLinesCount(int threshold) {
+        return getCleanedLines().stream().filter(l -> l.length() > threshold).count();
+    }
+
 }

@@ -27,6 +27,8 @@ public class LandscapeVisualsGenerator {
 
     public void exportVisuals(LandscapeAnalysisResults landscapeAnalysisResults) throws IOException {
         exportProjects(landscapeAnalysisResults);
+        exportContributors(landscapeAnalysisResults);
+        exportRecentContributors(landscapeAnalysisResults);
         exportLanguages(landscapeAnalysisResults);
     }
 
@@ -35,12 +37,30 @@ public class LandscapeVisualsGenerator {
         landscapeAnalysisResults.getAllProjects().forEach(projectAnalysisResults -> {
             CodeAnalysisResults analysisResults = projectAnalysisResults.getAnalysisResults();
 
-            String name = analysisResults.getCodeConfiguration().getMetadata().getName();
+            String name = analysisResults.getMetadata().getName();
             int linesOfCode = analysisResults.getMainAspectAnalysisResults().getLinesOfCode();
 
             items.add(new VisualizationItem(name, linesOfCode));
         });
         exportVisuals("projects", items);
+    }
+
+    private void exportContributors(LandscapeAnalysisResults landscapeAnalysisResults) throws IOException {
+        List<VisualizationItem> items = new ArrayList<>();
+        landscapeAnalysisResults.getContributors().forEach(contributorProject -> {
+            String name = contributorProject.getContributor().getEmail();
+            items.add(new VisualizationItem(name, contributorProject.getContributor().getCommitsCount()));
+        });
+        exportVisuals("contributors", items);
+    }
+
+    private void exportRecentContributors(LandscapeAnalysisResults landscapeAnalysisResults) throws IOException {
+        List<VisualizationItem> items = new ArrayList<>();
+        landscapeAnalysisResults.getContributors().stream().filter(c -> c.getContributor().getCommitsCount30Days() > 0).forEach(contributorProject -> {
+            String name = contributorProject.getContributor().getEmail();
+            items.add(new VisualizationItem(name, contributorProject.getContributor().getCommitsCount30Days()));
+        });
+        exportVisuals("contributors_30_days", items);
     }
 
     private void exportLanguages(LandscapeAnalysisResults landscapeAnalysisResults) throws IOException {

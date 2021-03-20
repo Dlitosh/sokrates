@@ -22,6 +22,8 @@ public class RichTextReport {
     private String logoLink = "";
     private List<Finding> findings = new ArrayList<>();
     private File reportsFolder;
+    private String parentUrl = "";
+    private boolean embedded = false;
 
     public RichTextReport() {
     }
@@ -184,6 +186,12 @@ public class RichTextReport {
         }
     }
 
+    public void addTableHeaderLeft(String... columns) {
+        for (String column : columns) {
+            addHtmlContent("<th style='text-align: left'>" + column + "</th>\n");
+        }
+    }
+
     public void startTable() {
         addHtmlContent("<table>\n");
     }
@@ -220,12 +228,24 @@ public class RichTextReport {
         addHtmlContent("<tr>\n");
     }
 
+    public void startTableRow(String style) {
+        addHtmlContent("<tr style='" + style + "'>\n");
+    }
+
     public void endTableRow() {
         addHtmlContent("</tr>\n");
     }
 
     public void addListItem(String text) {
         addHtmlContent("<li>" + text + "</li>\n");
+    }
+
+    public void startListItem() {
+        addHtmlContent("<li>");
+    }
+
+    public void endListItem() {
+        addHtmlContent("</li>\n");
     }
 
     public void startUnorderedList() {
@@ -252,8 +272,32 @@ public class RichTextReport {
         addHtmlContent("<a name=\"" + anchor + "\"></a>");
     }
 
+    public void startScrollingDiv() {
+        startScrollingDiv(400);
+    }
+
+    public void startScrollingDiv(int height) {
+        startDiv("max-height: " + height + "px; overflow-y: scroll; overflow-x: hidden;");
+    }
+
     public void startDiv(String style) {
         addHtmlContent("<div style=\"" + style + "\">");
+    }
+
+    public void startDivWithLabel(String label, String style) {
+        addHtmlContent("<div style=\"" + style + "\" \"title\"=\"" + label + "\">");
+    }
+
+    public void startDiv(String style, String tooltip) {
+        addHtmlContent("<div style=\"" + style + "\" title=\"" + tooltip + "\">");
+    }
+
+    public void startSpan(String style) {
+        addHtmlContent("<span style=\"" + style + "\">");
+    }
+
+    public void endSpan() {
+        addHtmlContent("</span>");
     }
 
     public void addContentInDiv(String content) {
@@ -284,6 +328,15 @@ public class RichTextReport {
                 "<div class='sectionBody'>");
     }
 
+    public void startTocSection() {
+        String title = "Table of Content";
+        this.addHtmlContent("<div class='subSection' style='width: 400px;'>" +
+                "<div class='subSectionHeader'>\n" +
+                "    <span>" + title + "</span>\n" +
+                "</div>\n" +
+                "<div class='sectionBody' style='font-size: 90%'>");
+    }
+
     public void endDiv() {
         addHtmlContent("</div>");
     }
@@ -294,11 +347,25 @@ public class RichTextReport {
     }
 
     public void addParagraph(String text, String style) {
-        addHtmlContent("<p style=\"" + style + "\">" + text + "</p>\n");
+        if (StringUtils.isNotBlank(text)) {
+            addHtmlContent("<p style=\"" + style + "\">" + text + "</p>\n");
+        }
+    }
+
+    public void addParagraphWithTooltip(String text, String title, String style) {
+        if (StringUtils.isNotBlank(text)) {
+            addHtmlContent("<div title=\"" + title + "\" style=\"" + style + "\">" + text
+                    + "<div style=\"font-size: 80%; cursor: help; margin-left: 5px; display: inline-block; width: 15px; height:15px; border-radius: 50%; background-color: #c8c8c8; text-align: center\">i</div>"
+                    + "</div>\n");
+        }
     }
 
     public void addTableCell(String text, String style) {
         addHtmlContent("<td style=\"" + style + "\">" + text + "</td>");
+    }
+
+    public void addTableCellWithTitle(String text, String style, String title) {
+        addHtmlContent("<td title='" + title + "' style=\"" + style + "\">" + text + "</td>");
 
     }
 
@@ -310,6 +377,10 @@ public class RichTextReport {
         addHtmlContent(RichTextRenderingUtils.getStartShowMoreParagraph(visibleContent, linkLabel));
     }
 
+    public void startShowMoreBlockDisappear(String visibleContent, String linkLabel) {
+        addHtmlContent(RichTextRenderingUtils.getStartShowMoreParagraphDisappear(visibleContent, linkLabel));
+    }
+
     public void startShowMoreBlock(String linkLabel) {
         addHtmlContent(RichTextRenderingUtils.getStartShowMoreParagraph("", linkLabel));
     }
@@ -319,11 +390,15 @@ public class RichTextReport {
     }
 
     public void addNewTabLink(String label, String href) {
-        this.addHtmlContent("<a target='_blank' href='" + href + "'>" + label + "</a>");
+        this.addHtmlContent("<a style='text-decoration: none' target='_blank' href='" + href + "'>" + label + "</a>");
     }
 
-    public void setReportsFolder(File reportsFolder) {
-        this.reportsFolder = reportsFolder;
+    public void startNewTabLink(String href, String style) {
+        this.addHtmlContent("<a target='_blank' href='" + href + "' style='" + style + "'>");
+    }
+
+    public void endNewTabLink() {
+        this.addHtmlContent("</a>");
     }
 
     private File getVisualsFolder() {
@@ -334,5 +409,52 @@ public class RichTextReport {
 
     public File getReportsFolder() {
         return reportsFolder;
+    }
+
+    public void setReportsFolder(File reportsFolder) {
+        this.reportsFolder = reportsFolder;
+    }
+
+    public String getParentUrl() {
+        return parentUrl;
+    }
+
+    public void setParentUrl(String parentUrl) {
+        this.parentUrl = parentUrl;
+    }
+
+    public void startTabGroup() {
+        addHtmlContent("<div class=\"tab\">\n");
+    }
+
+    public void addTab(String id, String label, boolean active) {
+        String styleClass = "tablinks";
+        if (active) {
+            styleClass += " active";
+        }
+        addHtmlContent("    <button class='" + styleClass + "' onclick='openTab(event, \""
+                + id + "\")'>"
+                + label + "</button>");
+    }
+
+    public void endTabGroup() {
+        addHtmlContent("</div>\n");
+    }
+
+    public void startTabContentSection(String id, boolean active) {
+        String style = active ? "block" : "none";
+        addHtmlContent("<div id=\"" + id + "\" class=\"tabcontent\" style=\"display: " + style + "\">\n");
+    }
+
+    public void endTabContentSection() {
+        addHtmlContent("</div>\n");
+    }
+
+    public boolean isEmbedded() {
+        return embedded;
+    }
+
+    public void setEmbedded(boolean embedded) {
+        this.embedded = embedded;
     }
 }

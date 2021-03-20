@@ -7,12 +7,15 @@ package nl.obren.sokrates.sourcecode.lang;
 import nl.obren.sokrates.sourcecode.SourceFile;
 import nl.obren.sokrates.sourcecode.SourceFileFilter;
 import nl.obren.sokrates.sourcecode.analysis.AnalyzerOverride;
+import nl.obren.sokrates.sourcecode.lang.adabasnatural.AdabasNaturalAnalyzer;
+import nl.obren.sokrates.sourcecode.lang.cfg.CfgAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.clojure.ClojureLangAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.cpp.CStyleAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.cpp.CppAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.csharp.CSharpAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.css.CssAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.d.DAnalyzer;
+import nl.obren.sokrates.sourcecode.lang.dbc.DbcAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.go.GoLangAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.groovy.GroovyAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.html.HtmlAnalyzer;
@@ -27,6 +30,7 @@ import nl.obren.sokrates.sourcecode.lang.lua.LuaAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.objectpascal.ObjectPascalAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.perl.PerlAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.php.PhpAnalyzer;
+import nl.obren.sokrates.sourcecode.lang.puppet.PuppetAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.python.PythonAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.r.RAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.ruby.RubyAnalyzer;
@@ -37,6 +41,7 @@ import nl.obren.sokrates.sourcecode.lang.scss.ScssAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.shell.ShellAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.sql.SqlAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.swift.SwiftAnalyzer;
+import nl.obren.sokrates.sourcecode.lang.thrift.ThriftAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.ts.TypeScriptAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.vb.VisualBasicAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.xml.XmlAnalyzer;
@@ -67,7 +72,7 @@ public class LanguageAnalyzerFactory {
         // javascript
         analyzersMap.put("js", JavaScriptAnalyzer.class);
         analyzersMap.put("cy", JavaScriptAnalyzer.class);
-        analyzersMap.put("jsx", JavaScriptAnalyzer.class);
+        analyzersMap.put("jsx", HtmlAnalyzer.class);
         analyzersMap.put("_js", JavaScriptAnalyzer.class);
         analyzersMap.put("bones", JavaScriptAnalyzer.class);
         analyzersMap.put("cjs", JavaScriptAnalyzer.class);
@@ -217,6 +222,9 @@ public class LanguageAnalyzerFactory {
         analyzersMap.put("tool", ShellAnalyzer.class);
         analyzersMap.put("zsh", ShellAnalyzer.class);
 
+        analyzersMap.put("dbc", DbcAnalyzer.class);
+        analyzersMap.put("cfg", CfgAnalyzer.class);
+
         registerYaml();
 
         registerR();
@@ -234,6 +242,14 @@ public class LanguageAnalyzerFactory {
         analyzersMap.put("dpr", ObjectPascalAnalyzer.class);
         analyzersMap.put("lpr", ObjectPascalAnalyzer.class);
         analyzersMap.put("pascal", ObjectPascalAnalyzer.class);
+
+        analyzersMap.put("nsp", AdabasNaturalAnalyzer.class);
+        analyzersMap.put("nsm", AdabasNaturalAnalyzer.class);
+        analyzersMap.put("nsh", AdabasNaturalAnalyzer.class);
+        analyzersMap.put("nsd", AdabasNaturalAnalyzer.class);
+        analyzersMap.put("nsn", AdabasNaturalAnalyzer.class);
+
+        analyzersMap.put("pp", PuppetAnalyzer.class);
     }
 
     private void registerRuby() {
@@ -539,6 +555,7 @@ public class LanguageAnalyzerFactory {
         analyzersMap.put("xqy", XmlAnalyzer.class);
         analyzersMap.put("xsl", XmlAnalyzer.class);
         analyzersMap.put("xslt", XmlAnalyzer.class);
+        analyzersMap.put("thrift", ThriftAnalyzer.class);
     }
 
     public static LanguageAnalyzerFactory getInstance() {
@@ -578,9 +595,9 @@ public class LanguageAnalyzerFactory {
         for (AnalyzerOverride override : overrides) {
             boolean overridden = false;
             for (SourceFileFilter sourceFileFilter : override.getFilters()) {
-                if (sourceFileFilter.matches(sourceFile) && sourceFileFilter.getInclude()) {
+                if (sourceFileFilter.matches(sourceFile) && !sourceFileFilter.getException()) {
                     overridden = true;
-                } else if (sourceFileFilter.matches(sourceFile) && !sourceFileFilter.getInclude()) {
+                } else if (sourceFileFilter.matches(sourceFile) && sourceFileFilter.getException()) {
                     overridden = false;
                     break;
                 }

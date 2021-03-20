@@ -34,16 +34,16 @@ public class MetaRulesProcessor<T extends NamedSourceCodeAspect> {
         this.sourceCodeAspectFactory = sourceCodeAspectFactory;
     }
 
-    public static MetaRulesProcessor getCrossCurringConcernsInstance() {
-        return new MetaRulesProcessor<CrossCuttingConcern>(false, new MetaRulesProcessorCallback() {
+    public static MetaRulesProcessor getConcernsInstance() {
+        return new MetaRulesProcessor<Concern>(false, new MetaRulesProcessorCallback() {
             @Override
             public NamedSourceCodeAspect getInstance(String name) {
-                return new CrossCuttingConcern(name);
+                return new Concern(name);
             }
 
             @Override
             public void updateSourceFile(SourceFile sourceFile, NamedSourceCodeAspect aspect) {
-                sourceFile.getCrossCuttingConcerns().add(aspect);
+                sourceFile.getConcerns().add(aspect);
             }
         });
     }
@@ -133,28 +133,29 @@ public class MetaRulesProcessor<T extends NamedSourceCodeAspect> {
     }
 
     private void processMatchingString(SourceFile sourceFile, MetaRule metaRule, String matchingString) {
-        updateAlreadyPrcessedFiles(sourceFile);
+        updateAlreadyProcessedFiles(sourceFile);
         String name = new ComplexOperation(metaRule.getNameOperations()).exec(matchingString);
-        name = StringUtils.defaultIfBlank(name, "ROOT");
-        if (map.containsKey(name)) {
-            T sourceCodeAspect = map.get(name);
-            List<SourceFile> sourceFiles = sourceCodeAspect.getSourceFiles();
-            if (!sourceFiles.contains(sourceFile)) {
-                sourceFiles.add(sourceFile);
+        if (StringUtils.isNotBlank(name)) {
+            if (map.containsKey(name)) {
+                T sourceCodeAspect = map.get(name);
+                List<SourceFile> sourceFiles = sourceCodeAspect.getSourceFiles();
+                if (!sourceFiles.contains(sourceFile)) {
+                    sourceFiles.add(sourceFile);
+                    sourceCodeAspectFactory.updateSourceFile(sourceFile, sourceCodeAspect);
+                }
+            } else {
+                NamedSourceCodeAspect sourceCodeAspect = sourceCodeAspectFactory.getInstance(name);
+                sourceCodeAspect.getSourceFiles().add(sourceFile);
+
                 sourceCodeAspectFactory.updateSourceFile(sourceFile, sourceCodeAspect);
+
+                map.put(name, (T) sourceCodeAspect);
+                concerns.add((T) sourceCodeAspect);
             }
-        } else {
-            NamedSourceCodeAspect sourceCodeAspect = sourceCodeAspectFactory.getInstance(name);
-            sourceCodeAspect.getSourceFiles().add(sourceFile);
-
-            sourceCodeAspectFactory.updateSourceFile(sourceFile, sourceCodeAspect);
-
-            map.put(name, (T) sourceCodeAspect);
-            concerns.add((T) sourceCodeAspect);
         }
     }
 
-    private void updateAlreadyPrcessedFiles(SourceFile sourceFile) {
+    private void updateAlreadyProcessedFiles(SourceFile sourceFile) {
         if (uniqueClassification && !alreadyAddedFiles.contains(sourceFile)) {
             alreadyAddedFiles.add(sourceFile);
         }

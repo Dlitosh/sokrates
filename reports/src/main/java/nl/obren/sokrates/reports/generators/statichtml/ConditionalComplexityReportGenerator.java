@@ -19,7 +19,7 @@ import java.util.List;
 
 public class ConditionalComplexityReportGenerator {
     private CodeAnalysisResults codeAnalysisResults;
-    private List<String> labels = Arrays.asList("26+", "11-25", "6-10", "1-5");
+    private List<String> labels = Arrays.asList("51+", "26-50", "11-25", "6-10", "1-5");
 
     public ConditionalComplexityReportGenerator(CodeAnalysisResults codeAnalysisResults) {
         this.codeAnalysisResults = codeAnalysisResults;
@@ -58,7 +58,7 @@ public class ConditionalComplexityReportGenerator {
         report.startSection("Conditional Complexity Overall", "");
         report.startUnorderedList();
         int linesOfCodeInUnits = unitsAnalysisResults.getLinesOfCodeInUnits();
-        report.addListItem("There are <a href='../data/units.txt'>" + RichTextRenderingUtils.renderNumberStrong(unitsAnalysisResults.getTotalNumberOfUnits())
+        report.addListItem("There are <a href='../data/text/units.txt'>" + RichTextRenderingUtils.renderNumberStrong(unitsAnalysisResults.getTotalNumberOfUnits())
                 + " units</a> with " + RichTextRenderingUtils.renderNumberStrong(linesOfCodeInUnits)
                 + " lines of code in units (" + (RichTextRenderingUtils.renderNumber(100.0 * linesOfCodeInUnits / codeAnalysisResults.getMainAspectAnalysisResults().getLinesOfCode())) + "% of code)" +
                 ".");
@@ -74,6 +74,9 @@ public class ConditionalComplexityReportGenerator {
                 + " lines of code)");
         report.addListItem(RichTextRenderingUtils.renderNumberStrong(unitMcCabeDistribution.getLowRiskCount())
                 + " simple units (" + RichTextRenderingUtils.renderNumberStrong(unitMcCabeDistribution.getLowRiskValue())
+                + " lines of code)");
+        report.addListItem(RichTextRenderingUtils.renderNumberStrong(unitMcCabeDistribution.getNegligibleRiskCount())
+                + " very simple units (" + RichTextRenderingUtils.renderNumberStrong(unitMcCabeDistribution.getNegligibleRiskValue())
                 + " lines of code)");
         report.endUnorderedList();
         report.endUnorderedList();
@@ -95,14 +98,19 @@ public class ConditionalComplexityReportGenerator {
         List<List<RiskDistributionStats>> conditionalComplexityRiskDistributionPerComponent = unitsAnalysisResults.getConditionalComplexityRiskDistributionPerComponent();
         conditionalComplexityRiskDistributionPerComponent.forEach(stats -> {
             report.startSubSection(getLogicalDecompositionName(conditionalComplexityRiskDistributionPerComponent.indexOf(stats)) + " logical decomposition", "");
+            report.startScrollingDiv();
             report.addHtmlContent(RiskDistributionStatsReportUtils.getRiskDistributionPerKeySvgBarChart(stats, labels).toString());
+            report.endDiv();
             report.endSection();
         });
         report.endSection();
 
         List<UnitInfo> mostComplexUnits = unitsAnalysisResults.getMostComplexUnits();
         report.startSection("Most Complex Units", "Top " + mostComplexUnits.size() + " most complex units");
+        report.startScrollingDiv();
         report.addHtmlContent(UtilsReportUtils.getUnitsTable(mostComplexUnits, "most_complex_unit", cacheFiles).toString());
+        report.endDiv();
+        report.endSection();
     }
 
     private String getLogicalDecompositionName(int index) {

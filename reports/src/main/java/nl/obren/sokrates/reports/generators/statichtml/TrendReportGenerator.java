@@ -4,23 +4,19 @@
 
 package nl.obren.sokrates.reports.generators.statichtml;
 
-import nl.obren.sokrates.common.io.JsonMapper;
 import nl.obren.sokrates.common.renderingutils.charts.Palette;
 import nl.obren.sokrates.common.utils.FormattingUtils;
 import nl.obren.sokrates.reports.charts.SimpleOneBarChart;
 import nl.obren.sokrates.reports.core.RichTextReport;
 import nl.obren.sokrates.reports.core.SummaryUtils;
-import nl.obren.sokrates.reports.utils.ZipUtils;
+import nl.obren.sokrates.reports.dataexporters.trends.ReferenceResultsLoader;
+import nl.obren.sokrates.reports.utils.ReportUtils;
 import nl.obren.sokrates.sourcecode.analysis.results.CodeAnalysisResults;
 import nl.obren.sokrates.sourcecode.core.ReferenceAnalysisResult;
+import nl.obren.sokrates.sourcecode.core.TrendAnalysisConfig;
 import nl.obren.sokrates.sourcecode.metrics.Metric;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,7 +43,8 @@ public class TrendReportGenerator {
         report.endShowMoreBlock();
         report.endSection();
 
-        List<ReferenceAnalysisResult> referenceResults = codeAnalysisResults.getCodeConfiguration().getCompareResultsWith();
+        TrendAnalysisConfig trendAnalysis = codeAnalysisResults.getCodeConfiguration().getTrendAnalysis();
+        List<ReferenceAnalysisResult> referenceResults = trendAnalysis.getReferenceAnalyses(codeConfigurationFile.getParentFile());
 
         if (referenceResults.size() == 0) {
             report.addParagraph("No reference analysis results have been defined.");
@@ -57,7 +54,8 @@ public class TrendReportGenerator {
         summarize(codeAnalysisResults, report, referenceResults);
 
         referenceResults.forEach(result -> {
-            processReferenceResults(codeAnalysisResults, report, result);
+            CodeAnalysisResults refData = new ReferenceResultsLoader().getRefData(result.getAnalysisResultsZipFile());
+            processReferenceResults(codeAnalysisResults, refData, report, result);
         });
 
         return report;
@@ -68,19 +66,27 @@ public class TrendReportGenerator {
         List<String> labels = new ArrayList<>();
         analysisResultsList.add(currentAnalysisResults);
         labels.add("Current");
-        int maxMainLoc[] = {0};
-        int maxTestLoc[] = {0};
-        int maxTotalLoc[] = {0};
+        int maxMainLoc[] = {currentAnalysisResults.getMainAspectAnalysisResults().getLinesOfCode()};
+        int maxTestLoc[] = {currentAnalysisResults.getTestAspectAnalysisResults().getLinesOfCode()};
+        int maxTotalLoc[] = {maxMainLoc[0] + maxTestLoc[0]};
         referenceResults.forEach(result -> {
-            CodeAnalysisResults refData = getRefData(result.getAnalysisResultsPath());
-            if (refData != null) {
+            CodeAnalysisResults refData = new ReferenceResultsLoader().getRefData(result.getAnalysisResultsZipFile());
+            if (refData != null && refData.getCodeConfiguration() != null) {
                 analysisResultsList.add(refData);
                 labels.add(result.getLabel());
-                maxMainLoc[0] = Math.max(refData.getMainAspectAnalysisResults().getLinesOfCode(), maxMainLoc[0]);
-                maxTestLoc[0] = Math.max(refData.getTestAspectAnalysisResults().getLinesOfCode(), maxTestLoc[0]);
-                maxTotalLoc[0] = Math.max(refData.getMainAspectAnalysisResults().getLinesOfCode() + refData.getTestAspectAnalysisResults().getLinesOfCode(), maxTotalLoc[0]);
+
+                int refLocMain = refData.getMainAspectAnalysisResults().getLinesOfCode();
+                int refLocTest = refData.getTestAspectAnalysisResults().getLinesOfCode();
+
+                maxMainLoc[0] = Math.max(refLocMain, maxMainLoc[0]);
+                maxTestLoc[0] = Math.max(refLocTest, maxTestLoc[0]);
+                maxTotalLoc[0] = Math.max(refLocMain + refLocTest, maxTotalLoc[0]);
             }
         });
+        addCodeVolumeSummarySection(report, analysisResultsList, labels, maxTotalLoc[0]);
+    }
+
+    private void addCodeVolumeSummarySection(RichTextReport report, List<CodeAnalysisResults> analysisResultsList, List<String> labels, int maxTotalLoc) {
         report.startSection("Summary: Code Volume Change", "");
         report.startDiv("width: 100%; overflow-x: auto");
         report.startTable();
@@ -94,14 +100,39 @@ public class TrendReportGenerator {
 
             report.startTableRow();
             report.addTableCell(labels.get(index[0]));
-            report.addTableCell(FormattingUtils.getFormattedCount(mainLoc), "text-align: right");
-            report.addTableCell(getVolumeSvgBarChart(maxTotalLoc[0], mainLoc, testLoc));
-            report.addTableCell(FormattingUtils.getFormattedCount(testLoc), "text-align: right");
+            report.addTableCell(FormattingUtils.formatCount(mainLoc), "text-align: right");
+            report.addTableCell(getVolumeSvgBarChart(maxTotalLoc, mainLoc, testLoc));
+            report.addTableCell(FormattingUtils.formatCount(testLoc), "text-align: right");
             report.addTableCell(getDuplicationChart(duplicationPercentage));
             report.endTableRow();
             index[0]++;
         });
         report.endTable();
+        report.addLineBreak();
+        report.addParagraph("See the details (TXT):");
+        report.startUnorderedList();
+        report.startListItem();
+        report.addNewTabLink("all metrics", "../data/text/metrics_trend.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("lines of code per extension", "../data/text/metrics_trend_loc_per_extension.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("lines of code per logical component", "../data/text/metrics_trend_loc_logical_decompositions.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("duplicated lines", "../data/text/metrics_trend_loc_duplication.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("lines of code per file size category", "../data/text/metrics_trend_loc_file_size.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("lines of code per unit size category", "../data/text/metrics_trend_unit_size_loc.txt");
+        report.endListItem();
+        report.startListItem();
+        report.addNewTabLink("lines of code per conditional complexity catagory", "../data/text/metrics_trend_conditional_complexity_loc.txt");
+        report.endListItem();
+        report.endUnorderedList();
         report.endDiv();
         report.endSection();
     }
@@ -127,12 +158,16 @@ public class TrendReportGenerator {
         return chart.getPercentageSvg(duplicationPercentage, "", FormattingUtils.getFormattedPercentage(duplicationPercentage) + "%");
     }
 
-    private void processReferenceResults(CodeAnalysisResults codeAnalysisResults, RichTextReport report, ReferenceAnalysisResult result) {
-        String analysisResultsPath = result.getAnalysisResultsPath();
-        CodeAnalysisResults refData = getRefData(analysisResultsPath);
+    private void processReferenceResults(CodeAnalysisResults codeAnalysisResults, CodeAnalysisResults refData, RichTextReport report, ReferenceAnalysisResult result) {
+        String analysisResultsPath = result.getAnalysisResultsZipFile().getPath();
         if (refData != null) {
-            report.startSection("Current vs. " + result.getLabel(), result.getAnalysisResultsPath());
+            report.startSection("Current vs. " + result.getLabel(), analysisResultsPath);
+            report.startShowMoreBlock("Comparison summary...");
             new SummaryUtils().summarizeAndCompare(codeAnalysisResults, refData, report);
+            report.endShowMoreBlock();
+
+            report.addLineBreak();
+            report.addLineBreak();
 
             report.startShowMoreBlock("Detailed comparison of all metrics...");
             report.startDiv("width: 100%; overflow-x: auto");
@@ -151,36 +186,6 @@ public class TrendReportGenerator {
         }
     }
 
-    private CodeAnalysisResults getRefData(String analysisResultsPath) {
-        CodeAnalysisResults refData = null;
-        try {
-            String json = null;
-            File file = new File(codeConfigurationFile, analysisResultsPath);
-            if (!file.exists()) {
-                file = new File(codeConfigurationFile.getParentFile(), analysisResultsPath);
-            }
-            if (file.exists()) {
-                json = getJson(file);
-                refData = (CodeAnalysisResults) new JsonMapper().getObject(json, CodeAnalysisResults.class);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return refData;
-    }
-
-    private String getJson(File file) throws IOException {
-        if (file.isDirectory()) {
-            file = new File(file, "analysisResults.zip");
-        }
-        if (FilenameUtils.getExtension(file.getName()).equalsIgnoreCase("zip")) {
-            String json = ZipUtils.unzipFirstEntryAsString(file);
-            return StringUtils.isNotBlank(json) ? json : "";
-        } else {
-            return FileUtils.readFileToString(file, StandardCharsets.UTF_8);
-        }
-    }
-
     private void addRow(Metric metric, CodeAnalysisResults refData) {
         Metric refMetric = refData.getMetricsList().getMetricById(metric.getId());
         double currentValue = metric.getValue().doubleValue();
@@ -193,10 +198,10 @@ public class TrendReportGenerator {
 
 
         report.startTableCell("text-align: center; color: lightgrey");
-        report.addHtmlContent("" + refValue);
+        report.addHtmlContent("" + ReportUtils.formatNumber(refValue));
         report.endTableCell();
         report.startTableCell("text-align: center");
-        report.addHtmlContent("<b>" + currentValue + "</b>");
+        report.addHtmlContent("<b>" + ReportUtils.formatNumber(currentValue) + "</b>");
         report.endTableCell();
 
         addDiffCell(currentValue, refValue);
@@ -226,10 +231,10 @@ public class TrendReportGenerator {
         if (Math.abs(diff) < roundingError) {
             diffText = "0 (0%)";
         } else if (Math.abs(refValue) < roundingError) {
-            diffText = diff + " (NEW)";
+            diffText = ReportUtils.formatNumber(diff) + " (NEW)";
         } else {
             double percentage = 100.0 * diff / refValue;
-            diffText = diff + " (" + (percentage > 0 ? "+" : (percentage < 0 ? "-" : ""))
+            diffText = ReportUtils.formatNumber(diff) + " (" + (percentage > 0 ? "+" : (percentage < 0 ? "-" : ""))
                     + FormattingUtils.getFormattedPercentage(Math.abs(percentage)) + "%)";
         }
         return diffText;

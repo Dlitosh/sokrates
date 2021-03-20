@@ -53,7 +53,7 @@ public class SourceCodeAspectUtils {
             }
             aspectName = StringUtils.defaultIfBlank(aspectName, "ROOT");
             NamedSourceCodeAspect aspect = new NamedSourceCodeAspect(aspectName);
-            String pathPattern = srcRoot + File.separator + path.toString() + File.separator + ".*";
+            String pathPattern = srcRoot + File.separator + path + File.separator + ".*";
             pathPattern = pathPattern.replace(File.separator + File.separator, File.separator);
             aspect.getSourceFileFilters().add(new SourceFileFilter(pathPattern, ""));
 
@@ -72,10 +72,10 @@ public class SourceCodeAspectUtils {
     private static void addExclusiveFilterIfNeeded(String path, String otherPath, String srcRoot, NamedSourceCodeAspect
             aspect) {
         if (otherPath.startsWith(path)) {
-            String otherPathPattern = srcRoot + File.separator + otherPath.toString() + File.separator + ".*";
+            String otherPathPattern = srcRoot + File.separator + otherPath + File.separator + ".*";
             otherPathPattern = otherPathPattern.replace(File.separator + File.separator, File.separator);
             SourceFileFilter otherSourceFileFilter = new SourceFileFilter(otherPathPattern, "");
-            otherSourceFileFilter.setInclude(false);
+            otherSourceFileFilter.setException(true);
             aspect.getSourceFileFilters().add(otherSourceFileFilter);
         }
     }

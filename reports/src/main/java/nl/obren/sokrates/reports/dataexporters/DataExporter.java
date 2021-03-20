@@ -5,6 +5,7 @@
 package nl.obren.sokrates.reports.dataexporters;
 
 import nl.obren.sokrates.common.io.JsonGenerator;
+import nl.obren.sokrates.common.io.JsonMapper;
 import nl.obren.sokrates.common.utils.FormattingUtils;
 import nl.obren.sokrates.common.utils.ProgressFeedback;
 import nl.obren.sokrates.common.utils.SystemUtils;
@@ -13,6 +14,7 @@ import nl.obren.sokrates.reports.dataexporters.duplication.DuplicateFileBlockExp
 import nl.obren.sokrates.reports.dataexporters.duplication.DuplicationExportInfo;
 import nl.obren.sokrates.reports.dataexporters.duplication.DuplicationExporter;
 import nl.obren.sokrates.reports.dataexporters.files.FileListExporter;
+import nl.obren.sokrates.reports.dataexporters.trends.MetricsTrendExporter;
 import nl.obren.sokrates.reports.dataexporters.units.UnitListExporter;
 import nl.obren.sokrates.reports.generators.explorers.DependenciesExplorerGenerator;
 import nl.obren.sokrates.reports.generators.explorers.DuplicationExplorerGenerator;
@@ -22,16 +24,23 @@ import nl.obren.sokrates.reports.utils.HtmlTemplateUtils;
 import nl.obren.sokrates.reports.utils.ZipUtils;
 import nl.obren.sokrates.sourcecode.IgnoredFilesGroup;
 import nl.obren.sokrates.sourcecode.SourceFile;
+import nl.obren.sokrates.sourcecode.SourceFileWithSearchData;
+import nl.obren.sokrates.sourcecode.analysis.results.AspectAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.CodeAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.DuplicationAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.UnitsAnalysisResults;
 import nl.obren.sokrates.sourcecode.aspects.NamedSourceCodeAspect;
+import nl.obren.sokrates.sourcecode.contributors.Contributor;
 import nl.obren.sokrates.sourcecode.core.CodeConfiguration;
-import nl.obren.sokrates.sourcecode.dependencies.Dependency;
+import nl.obren.sokrates.sourcecode.dependencies.ComponentDependency;
 import nl.obren.sokrates.sourcecode.duplication.DuplicatedFileBlock;
 import nl.obren.sokrates.sourcecode.duplication.DuplicationInstance;
+import nl.obren.sokrates.sourcecode.filehistory.FileHistoryScopingUtils;
+import nl.obren.sokrates.sourcecode.filehistory.FileModificationHistory;
+import nl.obren.sokrates.sourcecode.filehistory.FilePairChangedTogether;
 import nl.obren.sokrates.sourcecode.lang.DefaultLanguageAnalyzer;
 import nl.obren.sokrates.sourcecode.lang.LanguageAnalyzerFactory;
+import nl.obren.sokrates.sourcecode.search.FoundLine;
 import nl.obren.sokrates.sourcecode.units.UnitInfo;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
@@ -42,7 +51,6 @@ import org.apache.commons.text.StringEscapeUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -54,14 +62,19 @@ public class DataExporter {
     public static final String DATA_FOLDER_NAME = "data";
     public static final String HISTORY_FOLDER_NAME = "history";
     public static final String SEPARATOR = "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n";
+    public static final String FOUND_TEXT_PER_FILE_SIFFIX = "_found_text_per_file";
+    public static final String FOUND_TEXT_SUFFIX = "_found_text";
     private static final Log LOG = LogFactory.getLog(DataExporter.class);
     private ProgressFeedback progressFeedback;
+    private File sokratesConfigFile;
     private CodeConfiguration codeConfiguration;
     private File reportsFolder;
     private CodeAnalysisResults analysisResults;
     private File dataFolder;
     private File historyFolder;
     private File codeCacheFolder;
+    private File textDataFolder;
+    private File extraAnalysisDataFolder;
 
     public DataExporter(ProgressFeedback progressFeedback) {
         this.progressFeedback = progressFeedback;
@@ -75,22 +88,44 @@ public class DataExporter {
         return fileNamePrefix;
     }
 
-    public void saveData(CodeConfiguration codeConfiguration, File reportsFolder, CodeAnalysisResults analysisResults) throws IOException {
+    public void saveData(File sokratesConfigFile, CodeConfiguration codeConfiguration, File reportsFolder, CodeAnalysisResults analysisResults) throws IOException {
+        this.sokratesConfigFile = sokratesConfigFile;
         this.codeConfiguration = codeConfiguration;
         this.reportsFolder = reportsFolder;
         this.analysisResults = analysisResults;
         this.dataFolder = getDataFolder();
+        this.textDataFolder = getTextDataFolder();
+        this.extraAnalysisDataFolder = getExtraAnalysisDataFolder();
         this.historyFolder = getDataHistoryFolder();
 
         exportFileLists();
         exportMetrics();
+        exportTrends();
         exportControls();
+        exportContributors();
         exportJson();
         exportDuplicates();
         exportUnits();
         exportInteractiveExplorers();
         exportSourceFile();
         exportDependencies(analysisResults);
+        saveTemporalDependencies(analysisResults);
+    }
+
+    private void exportTrends() {
+        MetricsTrendExporter exporter = new MetricsTrendExporter(sokratesConfigFile, analysisResults);
+
+        try {
+            FileUtils.write(new File(textDataFolder, "metrics_trend.txt"), exporter.getText(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_loc_per_extension.txt"), exporter.getText("LINES_OF_CODE_MAIN_.*"), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_loc_duplication.txt"), exporter.getText("(DUPLICATION_NUMBER_OF_CLEANED_LINES|DUPLICATION_NUMBER_OF_DUPLICATED_LINES)"), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_unit_size_loc.txt"), exporter.getText("UNIT_SIZE_DISTRIBUTION_.*_LOC"), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_conditional_complexity_loc.txt"), exporter.getText("CONDITIONAL_COMPLEXITY_DISTRIBUTION_.*_LOC"), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_loc_logical_decompositions.txt"), exporter.getText("LINES_OF_CODE_DECOMPOSITION_.*", ".*_EXT_.*"), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics_trend_loc_file_size.txt"), exporter.getText("LINES_OF_CODE_FILE_SIZE_.*", ".*_EXT_.*"), UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void exportMetrics() {
@@ -103,7 +138,7 @@ public class DataExporter {
             content.append("\n");
         });
         try {
-            FileUtils.write(new File(dataFolder, "metrics.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "metrics.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -124,11 +159,36 @@ public class DataExporter {
             });
         });
         try {
-            FileUtils.write(new File(dataFolder, "controls.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "controls.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+    }
+
+    private void exportContributors() {
+        StringBuilder content = new StringBuilder();
+
+        List<Contributor> contributors = analysisResults.getContributorsAnalysisResults().getContributors();
+        int total = contributors.stream().mapToInt(c -> c.getCommitsCount()).sum();
+
+        content.append("Contributor\t#commits\t#commits (30 days)\t#commits (90 days)\tfirst commit\tlast commit\n");
+
+        contributors.forEach(contributor -> {
+            content.append(contributor.getEmail() + "\t");
+            content.append(contributor.getCommitsCount() + "\t");
+            content.append(contributor.getCommitsCount30Days() + "\t");
+            content.append(contributor.getCommitsCount90Days() + "\t");
+            content.append(contributor.getFirstCommitDate() + "\t");
+            content.append(contributor.getLatestCommitDate() + "\t");
+            double percentage = 100.0 * contributor.getCommitsCount() / total;
+            content.append(FormattingUtils.getFormattedPercentage(percentage) + "%\n");
+        });
+        try {
+            FileUtils.write(new File(textDataFolder, "contributors.txt"), content.toString(), UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void exportDuplicates() {
@@ -152,7 +212,7 @@ public class DataExporter {
             id[0]++;
         });
         try {
-            FileUtils.write(new File(dataFolder, "duplicates.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "duplicates.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -176,7 +236,7 @@ public class DataExporter {
             id[0]++;
         });
         try {
-            FileUtils.write(new File(dataFolder, "units.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "units.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -189,6 +249,43 @@ public class DataExporter {
                 exportDependencies(logicalDecompositionAnalysisResults.getKey(), componentDependency.getFromComponent(), componentDependency.getToComponent());
             });
         });
+    }
+
+    private void saveTemporalDependencies(CodeAnalysisResults analysisResults) {
+        List<FilePairChangedTogether> filePairsChangedTogether = analysisResults.getFilesHistoryAnalysisResults().getFilePairsChangedTogether();
+        exportFilesChangedTogether(filePairsChangedTogether,
+                "temporal_dependencies.txt");
+        exportFilesChangedTogether(analysisResults.getFilesHistoryAnalysisResults().getFilePairsChangedTogetherInDifferentFolders(filePairsChangedTogether),
+                "temporal_dependencies_different_folders.txt");
+        List<FilePairChangedTogether> filePairsChangedTogether30Days = analysisResults.getFilesHistoryAnalysisResults().getFilePairsChangedTogether30Days();
+        exportFilesChangedTogether(filePairsChangedTogether30Days,
+                "temporal_dependencies_30_days.txt");
+        exportFilesChangedTogether(analysisResults.getFilesHistoryAnalysisResults().getFilePairsChangedTogetherInDifferentFolders(filePairsChangedTogether30Days),
+                "temporal_dependencies_different_folders_30_days.txt");
+    }
+
+    private void exportFilesChangedTogether(List<FilePairChangedTogether> filePairsChangedTogether, String fileName) {
+        StringBuilder content = new StringBuilder();
+        content.append("file 1\tfile 2\t# same commits\t# commits file 1\t# commits file 2\n");
+        if (filePairsChangedTogether.size() > 0) {
+            filePairsChangedTogether.sort((a, b) -> b.getCommits().size() - a.getCommits().size());
+
+            int limit = Math.min(10000, filePairsChangedTogether.size());
+            List<FilePairChangedTogether> limitedList = filePairsChangedTogether.subList(0, limit);
+
+            limitedList.forEach(pair -> {
+                content.append(pair.getSourceFile1().getRelativePath()).append("\t");
+                content.append(pair.getSourceFile2().getRelativePath()).append("\t");
+                content.append(pair.getCommits().size()).append("\t");
+                content.append(pair.getCommitsCountFile1()).append("\t");
+                content.append(pair.getCommitsCountFile2()).append("\n");
+            });
+        }
+        try {
+            FileUtils.write(new File(textDataFolder, fileName), content.toString(), UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void exportFileLists() {
@@ -206,9 +303,11 @@ public class DataExporter {
             });
         });
 
-        analysisResults.getCrossCuttingConcernsAnalysisResults().forEach(group -> {
-            group.getCrossCuttingConcerns().forEach(concern -> {
-                saveSourceCodeAspect(concern.getAspect(), DataExportUtils.getCrossCuttingConcernFilePrefix(group.getKey()));
+        analysisResults.getConcernsAnalysisResults().forEach(group -> {
+            group.getConcerns().forEach(concern -> {
+                saveSourceCodeAspect(concern.getAspect(), DataExportUtils.getConcernFilePrefix(group.getKey()));
+                saveFoundText(concern, DataExportUtils.getConcernFilePrefix(group.getKey()));
+                saveFoundTextPerFile(concern, DataExportUtils.getConcernFilePrefix(group.getKey()));
             });
         });
     }
@@ -245,7 +344,7 @@ public class DataExporter {
         });
 
         try {
-            FileUtils.write(new File(dataFolder, "excluded_files_ignored_extensions.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "excluded_files_ignored_extensions.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -257,11 +356,11 @@ public class DataExporter {
             if (shouldProcessLogicalDecomposition(filterLogicalDecomposition, logicalDecompositionName)) {
                 StringBuilder content = new StringBuilder();
                 String fileNamePrefix = dependenciesFileNamePrefix(filterFrom, filterTo, logicalDecompositionName);
-                logicalDecomposition.getAllDependencies().forEach(dependency -> {
-                    content.append(appendDependency(filterFrom, filterTo, logicalDecompositionName, dependency));
+                logicalDecomposition.getComponentDependencies().forEach(dependency -> {
+                    content.append(appendDependency(filterFrom, filterTo, dependency));
                 });
                 try {
-                    FileUtils.write(new File(dataFolder, fileNamePrefix + ".txt"), content.toString(), UTF_8);
+                    FileUtils.write(new File(textDataFolder, fileNamePrefix + ".txt"), content.toString(), UTF_8);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -269,33 +368,25 @@ public class DataExporter {
         });
     }
 
-    private String appendDependency(String filterFrom, String filterTo, String logicalDecompositionName, Dependency dependency) {
+    private String appendDependency(String filterFrom, String filterTo, ComponentDependency dependency) {
         StringBuilder content = new StringBuilder();
-        dependency.getFromFiles().forEach(sourceFileDependency -> {
-            List<NamedSourceCodeAspect> fromComponents = dependency.getFromComponents(logicalDecompositionName);
-            List<NamedSourceCodeAspect> toComponents = dependency.getToComponents(logicalDecompositionName);
 
-            String fromComponent = dependency.getFromComponentName() != null
-                    ? dependency.getFromComponentName()
-                    : fromComponents.size() > 0 ? fromComponents.get(0).getName() : "UNKNOWN";
-
-            String toComponent = dependency.getToComponentName() != null
-                    ? dependency.getToComponentName()
-                    : toComponents.size() > 0 ? toComponents.get(0).getName() : "UNKNOWN";
-
-            if (shouldAppendDependency(filterFrom, filterTo, fromComponent, toComponent)) {
-                content.append("from: " + fromComponent);
+        String from = dependency.getFromComponent();
+        String to = dependency.getToComponent();
+        if (shouldAppendDependency(filterFrom, filterTo, from, to)) {
+            dependency.getEvidence().forEach(evidence -> {
+                content.append("from: " + from);
                 content.append("\n");
-                content.append("to: " + toComponent);
+                content.append("to: " + to);
                 content.append("\nevidence:\n");
                 content.append(" - file: \"");
-                content.append(sourceFileDependency.getSourceFile().getRelativePath());
+                content.append(evidence.getPathFrom());
                 content.append("\"\n");
                 content.append("   contains \"");
-                content.append(sourceFileDependency.getCodeFragment());
+                content.append(evidence.getEvidence());
                 content.append("\"\n\n");
-            }
-        });
+            });
+        }
 
         return content.toString();
     }
@@ -333,7 +424,7 @@ public class DataExporter {
         });
 
         try {
-            FileUtils.write(new File(dataFolder, "excluded_files_ignored_rules.txt"), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, "excluded_files_ignored_rules.txt"), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -354,7 +445,69 @@ public class DataExporter {
         });
 
         try {
-            FileUtils.write(new File(dataFolder, DataExportUtils.getAspectFileListFileName(aspect, prefix)), content.toString(), UTF_8);
+            FileUtils.write(new File(textDataFolder, DataExportUtils.getAspectFileListFileName(aspect, prefix)), content.toString(), UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveFoundText(AspectAnalysisResults aspectAnalysisResults, String prefix) {
+        if (aspectAnalysisResults.getFoundTextList().size() == 0) {
+            return;
+        }
+
+        StringBuilder content = new StringBuilder();
+
+        content.append("Text\tCount\n");
+        int total[] = {0};
+        int unique[] = {0};
+        aspectAnalysisResults.getFoundTextList().forEach(foundText -> {
+            content.append(foundText.getText().trim());
+            content.append("\t");
+            content.append(foundText.getCount());
+            content.append("\n");
+
+            unique[0] += 1;
+            total[0] += foundText.getCount();
+        });
+
+        try {
+            String fileName = DataExportUtils.getAspectFileListFileName(aspectAnalysisResults.getAspect(), prefix, FOUND_TEXT_SUFFIX);
+            String data = "Summary: " + total[0] + " " + (total[0] == 1 ? "instance" : "instances") + ", " + unique[0] + " unique\n\n";
+            data += content.toString();
+            FileUtils.write(new File(textDataFolder, fileName), data, UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveFoundTextPerFile(AspectAnalysisResults aspectAnalysisResults, String prefix) {
+        Map<File, SourceFileWithSearchData> foundFiles = aspectAnalysisResults.getFoundFiles();
+        if (foundFiles.size() == 0) {
+            return;
+        }
+
+        StringBuilder content = new StringBuilder();
+
+        List<SourceFileWithSearchData> list = new ArrayList<>(foundFiles.values());
+        Collections.sort(list, (a, b) -> b.getFoundInstancesCount() - a.getFoundInstancesCount());
+        list.forEach(data -> {
+            if (content.length() > 0) {
+                content.append("\n\n");
+            }
+            List<FoundLine> lines = data.getLinesWithSearchedContent();
+            content.append(data.getSourceFile().getRelativePath() + " (" + lines.size() + " " + (lines.size() == 1 ? "line" : "lines") + "):\n");
+            data.getLinesWithSearchedContent().forEach(line -> {
+                content.append("\t");
+                content.append("- line " + line.getLineNumber() + ": ");
+                content.append(line.getFoundText().trim());
+                content.append("\n");
+            });
+        });
+
+        try {
+            String fileName = DataExportUtils.getAspectFileListFileName(aspectAnalysisResults.getAspect(), prefix, FOUND_TEXT_PER_FILE_SIFFIX);
+            FileUtils.write(new File(textDataFolder, fileName), content.toString(), UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -401,11 +554,26 @@ public class DataExporter {
         String analysisResultsJson = new JsonGenerator().generate(analysisResults);
         FileUtils.write(new File(dataFolder, "analysisResults.json"), analysisResultsJson, UTF_8);
 
-        if (codeConfiguration.getAnalysis().isSaveDailyHistory()) {
-            ZipUtils.stringToZipFile(new File(getTodayHistoryFolder(), "analysisResults.zip"), "analysisResults.json", analysisResultsJson);
+        String configJson = FileUtils.readFileToString(sokratesConfigFile, UTF_8);
+        FileUtils.write(new File(dataFolder, "config.json"), configJson, UTF_8);
+
+        if (codeConfiguration.getTrendAnalysis().isSaveHistory()) {
+            ZipUtils.stringToZipFile(new File(getTodayHistoryFolder(), "analysisResults.zip"),
+                    new String[][]{{"config.json", configJson},
+                            {"analysisResults.json", analysisResultsJson}});
+            ZipUtils.stringToZipFile(new File(getLatestHistoryFolder(), "analysisResults.zip"),
+                    new String[][]{{"config.json", configJson},
+                            {"analysisResults.json", analysisResultsJson}});
         }
 
         FileUtils.write(new File(dataFolder, "mainFiles.json"), new JsonGenerator().generate(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()), UTF_8);
+
+        if (codeConfiguration.getFileHistoryAnalysis().filesHistoryImportPathExists(sokratesConfigFile.getParentFile())) {
+            saveExtraAnalysesConfig();
+        }
+
+        FileUtils.write(new File(textDataFolder, "mainFiles.txt"), getFilesAsTxt(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()), UTF_8);
+        FileUtils.write(new File(textDataFolder, "mainFilesWithHistory.txt"), getFilesWithHistoryAsTxt(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()), UTF_8);
         FileUtils.write(new File(dataFolder, "testFiles.json"), new JsonGenerator().generate(analysisResults.getTestAspectAnalysisResults().getAspect().getSourceFiles()), UTF_8);
         FileUtils.write(new File(dataFolder, "units.json"), new JsonGenerator().generate(new UnitListExporter(analysisResults.getUnitsAnalysisResults().getAllUnits()).getAllUnitsData()), UTF_8);
         FileUtils.write(new File(dataFolder, "files.json"), new FileListExporter(analysisResults.getFilesAnalysisResults().getAllFiles()).getJson(), UTF_8);
@@ -415,6 +583,108 @@ public class DataExporter {
                 analysisResults.getLogicalDecompositionsAnalysisResults()), UTF_8);
         FileUtils.write(new File(dataFolder, "dependencies.json"), new JsonGenerator().generate(
                 new DependenciesExporter(analysisResults.getAllDependencies()).getDependenciesExportInfo()), UTF_8);
+        FileUtils.write(new File(dataFolder, "contributors.json"), new JsonGenerator().generate(analysisResults.getContributorsAnalysisResults().getContributors()), UTF_8);
+    }
+
+    public File getTextDataFolder() {
+        File textDataFolder = new File(dataFolder, "text");
+        textDataFolder.mkdirs();
+        return textDataFolder;
+    }
+
+    public File getExtraAnalysisDataFolder() {
+        File extraAnalysisDataFolder = new File(dataFolder, "extra_analysis");
+        extraAnalysisDataFolder.mkdirs();
+        return extraAnalysisDataFolder;
+    }
+
+    private void saveExtraAnalysesConfig() {
+        try {
+            String jsonContent = FileUtils.readFileToString(sokratesConfigFile, UTF_8);
+
+            FileUtils.write(new File(extraAnalysisDataFolder, "config_original.json"), new JsonGenerator().generate(codeConfiguration), UTF_8);
+
+            saveConfigByFileChangeFrequency(jsonContent);
+            saveConfigByFileAge(jsonContent);
+            saveConfigByFileFreshness(jsonContent);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveConfigByFileChangeFrequency(String jsonContent) throws IOException {
+        CodeConfiguration codeConfiguration = (CodeConfiguration) new JsonMapper().getObject(jsonContent, CodeConfiguration.class);
+        codeConfiguration.setLogicalDecompositions(FileHistoryScopingUtils.getLogicalDecompositionsFileUpdateFrequency(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()));
+
+        codeConfiguration.getFileHistoryAnalysis().setImportPath("");
+
+        FileUtils.write(new File(extraAnalysisDataFolder, "config_by_file_change_frequency.json"), new JsonGenerator().generate(codeConfiguration), UTF_8);
+    }
+
+    private void saveConfigByFileAge(String jsonContent) throws IOException {
+        CodeConfiguration codeConfiguration = (CodeConfiguration) new JsonMapper().getObject(jsonContent, CodeConfiguration.class);
+        codeConfiguration.setLogicalDecompositions(FileHistoryScopingUtils.getLogicalDecompositionsByAge(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()));
+
+        codeConfiguration.getFileHistoryAnalysis().setImportPath("");
+
+        FileUtils.write(new File(extraAnalysisDataFolder, "config_by_file_age.json"), new JsonGenerator().generate(codeConfiguration), UTF_8);
+    }
+
+    private void saveConfigByFileFreshness(String jsonContent) throws IOException {
+        CodeConfiguration codeConfiguration = (CodeConfiguration) new JsonMapper().getObject(jsonContent, CodeConfiguration.class);
+        codeConfiguration.setLogicalDecompositions(FileHistoryScopingUtils.getLogicalDecompositionsByFreshness(analysisResults.getMainAspectAnalysisResults().getAspect().getSourceFiles()));
+
+        codeConfiguration.getFileHistoryAnalysis().setImportPath("");
+
+        FileUtils.write(new File(extraAnalysisDataFolder, "config_by_file_freshness.json"), new JsonGenerator().generate(codeConfiguration), UTF_8);
+    }
+
+    private String getFilesAsTxt(List<SourceFile> sourceFiles) {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append("path\t# lines of code").append("\n");
+
+        sourceFiles.forEach(sourceFile -> {
+            builder.append(sourceFile.getRelativePath())
+                    .append("\t")
+                    .append(sourceFile.getLinesOfCode())
+                    .append("\n");
+        });
+
+        return builder.toString();
+    }
+
+    private String getFilesWithHistoryAsTxt(List<SourceFile> sourceFiles) {
+        StringBuilder builder = new StringBuilder();
+
+        builder
+                .append("path\t")
+                .append("# lines of code\t")
+                .append("number of updates\tdays since first update\tdays since last update\t")
+                .append("first updated\tlast updated\t")
+                .append("\n");
+
+        sourceFiles.forEach(sourceFile -> {
+            FileModificationHistory history = sourceFile.getFileModificationHistory();
+            if (history != null) {
+                builder.append(sourceFile.getRelativePath())
+                        .append("\t")
+                        .append(sourceFile.getLinesOfCode())
+                        .append("\t")
+                        .append(history.getDates().size())
+                        .append("\t")
+                        .append(history.daysSinceFirstUpdate())
+                        .append("\t")
+                        .append(history.daysSinceLatestUpdate())
+                        .append("\t")
+                        .append(history.getOldestDate())
+                        .append("\t")
+                        .append(history.getLatestDate())
+                        .append("\n");
+            }
+        });
+
+        return builder.toString();
     }
 
     private void saveUnitFragmentFiles(List<UnitInfo> units, String fragmentType) throws IOException {
@@ -440,8 +710,8 @@ public class DataExporter {
             html = html.replace("${file-and-lines}", fileAndLines);
             html = html.replace("${language}", unit.getSourceFile().getExtension());
             html = html.replace("${code}", StringEscapeUtils.escapeHtml4(unit.getBody()));
-            html = html.replace("${lines-of-code}", FormattingUtils.getFormattedCount(unit.getLinesOfCode()));
-            html = html.replace("${mccabe-index}", FormattingUtils.getFormattedCount(unit.getMcCabeIndex()));
+            html = html.replace("${lines-of-code}", FormattingUtils.formatCount(unit.getLinesOfCode()));
+            html = html.replace("${mccabe-index}", FormattingUtils.formatCount(unit.getMcCabeIndex()));
 
             File htmlFile = new File(fragmentsFolder, fileName + ".html");
             FileUtils.write(htmlFile, html, UTF_8);
@@ -462,7 +732,7 @@ public class DataExporter {
             String defaultLangName = DefaultLanguageAnalyzer.class.getSimpleName().replace("Analyzer", "");
             html = html.replace("${language}", langName.equalsIgnoreCase(defaultLangName) ? sourceFile.getExtension() : langName);
             html = html.replace("${code}", StringEscapeUtils.escapeHtml4(sourceFile.getContent()));
-            html = html.replace("${lines-of-code}", FormattingUtils.getFormattedCount(sourceFile.getLinesOfCode()));
+            html = html.replace("${lines-of-code}", FormattingUtils.formatCount(sourceFile.getLinesOfCode()));
 
             FileUtils.write(htmlFile, html, UTF_8);
 
@@ -581,12 +851,11 @@ public class DataExporter {
     }
 
     public File getTodayHistoryFolder() {
-        String pattern = "yyyy-MM-dd";
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        return codeConfiguration.getTrendAnalysis().getSnapshotFolder(sokratesConfigFile.getParentFile());
+    }
 
-        String date = simpleDateFormat.format(new Date());
-
-        File folder = new File(getDataHistoryFolder(), date);
+    public File getLatestHistoryFolder() {
+        File folder = new File(getDataHistoryFolder(), "LATEST");
         folder.mkdirs();
         return folder;
     }

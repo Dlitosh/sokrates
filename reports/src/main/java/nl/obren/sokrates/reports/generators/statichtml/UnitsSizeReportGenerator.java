@@ -19,7 +19,7 @@ import java.util.List;
 
 public class UnitsSizeReportGenerator {
     private CodeAnalysisResults codeAnalysisResults;
-    private List<String> labels = Arrays.asList("101+", "51-100", "21-50", "1-20");
+    private List<String> labels = Arrays.asList("101+", "51-100", "21-50", "11-20", "1-10");
 
     public UnitsSizeReportGenerator(CodeAnalysisResults codeAnalysisResults) {
         this.codeAnalysisResults = codeAnalysisResults;
@@ -67,7 +67,7 @@ public class UnitsSizeReportGenerator {
         report.startSection("Unit Size Overall", "");
         report.startUnorderedList();
         int linesOfCodeInUnits = unitsAnalysisResults.getLinesOfCodeInUnits();
-        report.addListItem("There are <a href='../data/units.txt'>" + RichTextRenderingUtils.renderNumberStrong(unitsAnalysisResults.getTotalNumberOfUnits())
+        report.addListItem("There are <a href='../data/text/units.txt'>" + RichTextRenderingUtils.renderNumberStrong(unitsAnalysisResults.getTotalNumberOfUnits())
                 + " units</a> with " + RichTextRenderingUtils.renderNumberStrong(linesOfCodeInUnits)
                 + " lines of code in units (" + (RichTextRenderingUtils.renderNumber(100.0 * linesOfCodeInUnits / codeAnalysisResults.getMainAspectAnalysisResults().getLinesOfCode())) + "% of code)" +
                 ".");
@@ -84,6 +84,9 @@ public class UnitsSizeReportGenerator {
         report.addListItem(RichTextRenderingUtils.renderNumberStrong(unitSizeDistribution.getLowRiskCount())
                 + " small units (" + RichTextRenderingUtils.renderNumberStrong(unitSizeDistribution.getLowRiskValue())
                 + " lines of code)");
+        report.addListItem(RichTextRenderingUtils.renderNumberStrong(unitSizeDistribution.getNegligibleRiskCount())
+                + " very small units (" + RichTextRenderingUtils.renderNumberStrong(unitSizeDistribution.getNegligibleRiskValue())
+                + " lines of code)");
 
         report.endUnorderedList();
         report.endUnorderedList();
@@ -99,8 +102,10 @@ public class UnitsSizeReportGenerator {
         List<List<RiskDistributionStats>> unitSizeRiskDistributionPerComponent = unitsAnalysisResults.getUnitSizeRiskDistributionPerComponent();
         unitSizeRiskDistributionPerComponent.forEach(stats -> {
             report.startSubSection(getLogicalDecompositionName(unitSizeRiskDistributionPerComponent.indexOf(stats)) + " logical decomposition", "");
+            report.startScrollingDiv();
             report.addHtmlContent(RiskDistributionStatsReportUtils.getRiskDistributionPerKeySvgBarChart(stats, labels)
                     .toString());
+            report.endDiv();
             report.endSection();
         });
         report.endSection();
@@ -114,7 +119,9 @@ public class UnitsSizeReportGenerator {
         List<UnitInfo> longestUnits = unitsAnalysisResults.getLongestUnits();
         report.startSection("Longest Units", "Top " + longestUnits.size() + " longest units");
         boolean cacheFiles = codeAnalysisResults.getCodeConfiguration().getAnalysis().isCacheSourceFiles();
+        report.startScrollingDiv();
         report.addHtmlContent(UtilsReportUtils.getUnitsTable(longestUnits, "longest_unit", cacheFiles).toString());
+        report.endDiv();
         report.endSection();
     }
 

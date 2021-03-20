@@ -7,17 +7,15 @@ package nl.obren.sokrates.sourcecode.dependencies;
 import nl.obren.sokrates.common.utils.RegexUtils;
 import nl.obren.sokrates.sourcecode.SourceFile;
 import nl.obren.sokrates.sourcecode.SourceFileFilter;
-import nl.obren.sokrates.sourcecode.aspects.LogicalDecomposition;
-import nl.obren.sokrates.sourcecode.aspects.MetaRule;
-import nl.obren.sokrates.sourcecode.aspects.MetaRulesProcessor;
-import nl.obren.sokrates.sourcecode.aspects.NamedSourceCodeAspect;
+import nl.obren.sokrates.sourcecode.aspects.*;
+import nl.obren.sokrates.sourcecode.lang.LanguageAnalyzer;
+import nl.obren.sokrates.sourcecode.lang.LanguageAnalyzerFactory;
 import nl.obren.sokrates.sourcecode.operations.ComplexOperation;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 
 public class DependenciesFinderExtractor {
-    private static final int MAX_SEARCH_DEPTH_LINES = 200;
     private LogicalDecomposition logicalDecomposition;
     private List<ComponentDependency> dependencies = new ArrayList<>();
     private Set<String> fileComponentDependencies = new HashSet<>();
@@ -41,7 +39,15 @@ public class DependenciesFinderExtractor {
         dependenciesMap = new HashMap<>();
 
         aspect.getSourceFiles().forEach(sourceFile -> findComponentDependenciesViaSimpleRules(sourceFile));
-        aspect.getSourceFiles().forEach(sourceFile -> findComponentDependenciesViaMetaRules(sourceFile));
+        DependenciesFinder dependenciesFinder = logicalDecomposition.getDependenciesFinder();
+        List<MetaDependencyRule> metaRules = new ArrayList<>();
+        if (dependenciesFinder.isUseBuiltInDependencyFinders()) {
+            aspect.getSourceFiles().forEach(sourceFile -> {
+                LanguageAnalyzer languageAnalyzer = LanguageAnalyzerFactory.getInstance().getLanguageAnalyzer(sourceFile);
+                findComponentDependenciesViaMetaRules(languageAnalyzer.getMetaDependencyRules(), sourceFile);
+            });
+        }
+        aspect.getSourceFiles().forEach(sourceFile -> findComponentDependenciesViaMetaRules(dependenciesFinder.getMetaRules(), sourceFile));
 
         return dependencies;
     }
@@ -53,22 +59,22 @@ public class DependenciesFinderExtractor {
             if (sourceFileFilter.pathMatches(sourceFile.getRelativePath())) {
                 getSimpleLines(sourceFile).forEach(line -> {
                     if (RegexUtils.matchesEntirely(rule.getContentPattern(), line)) {
-                        addDependency(dependencies, dependenciesMap, sourceFile, rule.getComponent(), line);
+                        addDependency(dependencies, dependenciesMap, sourceFile, rule.getComponent(), line, rule.getColor(), rule.isReverseDirection());
                     }
                 });
             }
         });
     }
 
-    private void findComponentDependenciesViaMetaRules(SourceFile sourceFile) {
-        logicalDecomposition.getDependenciesFinder().getMetaRules().forEach(metaRule -> {
+    private void findComponentDependenciesViaMetaRules(List<MetaDependencyRule> metaRules, SourceFile sourceFile) {
+        metaRules.forEach(metaRule -> {
             SourceFileFilter sourceFileFilter = new SourceFileFilter(metaRule.getPathPattern(), "");
 
             if (sourceFileFilter.pathMatches(sourceFile.getRelativePath())) {
                 getLines(sourceFile, metaRule).forEach(line -> {
                     if (RegexUtils.matchesEntirely(metaRule.getContentPattern(), line)) {
                         String component = new ComplexOperation(metaRule.getNameOperations()).exec(line);
-                        addDependency(dependencies, dependenciesMap, sourceFile, component, line);
+                        addDependency(dependencies, dependenciesMap, sourceFile, component, line, metaRule.getColor(), metaRule.isReverseDirection());
                     }
                 });
             }
@@ -80,21 +86,22 @@ public class DependenciesFinderExtractor {
             return Arrays.asList(sourceFile.getRelativePath());
         }
         List<String> lines = metaRule.isIgnoreComments() ? sourceFile.getCleanedLines() : sourceFile.getLines();
-        if (lines.size() > MAX_SEARCH_DEPTH_LINES) {
-            lines = lines.subList(0, MAX_SEARCH_DEPTH_LINES);
+        if (lines.size() > logicalDecomposition.getMaxSearchDepthLines()) {
+            lines = lines.subList(0, logicalDecomposition.getMaxSearchDepthLines());
         }
         return lines;
     }
 
     private List<String> getSimpleLines(SourceFile sourceFile) {
         List<String> lines = sourceFile.getLines();
-        if (lines.size() > MAX_SEARCH_DEPTH_LINES) {
-            lines = lines.subList(0, MAX_SEARCH_DEPTH_LINES);
+        if (lines.size() > logicalDecomposition.getMaxSearchDepthLines()) {
+            lines = lines.subList(0, logicalDecomposition.getMaxSearchDepthLines());
         }
         return lines;
     }
 
-    private void addDependency(List<ComponentDependency> dependencies, Map<String, ComponentDependency> dependenciesMap, SourceFile sourceFile, String toComponent, String line) {
+    private void addDependency(List<ComponentDependency> dependencies, Map<String, ComponentDependency> dependenciesMap,
+                               SourceFile sourceFile, String toComponent, String line, String color, boolean reverseDirection) {
         if (StringUtils.isBlank(toComponent)) {
             return;
         }
@@ -103,9 +110,10 @@ public class DependenciesFinderExtractor {
             return;
         }
 
-        if (isInDuplicatedDependecies(sourceFile, toComponent)) return;
+        if (isInDuplicatedDependecies(sourceFile, toComponent, color)) return;
 
         ComponentDependency componentDependency = new ComponentDependency();
+        componentDependency.setColor(color);
         String group = logicalDecomposition.getName();
         List<NamedSourceCodeAspect> logicalComponents = sourceFile.getLogicalComponents(group);
 
@@ -115,8 +123,13 @@ public class DependenciesFinderExtractor {
 
         NamedSourceCodeAspect firstAspect = logicalComponents.get(0);
         String fromComponent = firstAspect.getName();
-        componentDependency.setFromComponent(fromComponent);
-        componentDependency.setToComponent(toComponent);
+        if (reverseDirection) {
+            componentDependency.setFromComponent(toComponent);
+            componentDependency.setToComponent(fromComponent);
+        } else {
+            componentDependency.setFromComponent(fromComponent);
+            componentDependency.setToComponent(toComponent);
+        }
 
         addFileDepedency(sourceFile, fromComponent, toComponent, line, firstAspect);
 
@@ -131,7 +144,7 @@ public class DependenciesFinderExtractor {
             }
 
             componentDependency.setLocFrom(componentDependency.getLocFrom() + sourceFile.getLinesOfCode());
-            componentDependency.getPathsFrom().add(sourceFile.getRelativePath());
+            componentDependency.getEvidence().add(new DependencyEvidence(sourceFile.getRelativePath(), line));
         }
     }
 
@@ -146,8 +159,8 @@ public class DependenciesFinderExtractor {
         allDependencies.add(fileDependency);
     }
 
-    private boolean isInDuplicatedDependecies(SourceFile sourceFile, String toComponent) {
-        String duplicationKey = sourceFile.getRelativePath() + " -> " + toComponent;
+    private boolean isInDuplicatedDependecies(SourceFile sourceFile, String toComponent, String color) {
+        String duplicationKey = color + " / " + sourceFile.getRelativePath() + " -> " + toComponent;
         if (fileComponentDependencies.contains(duplicationKey)) {
             return true;
         }

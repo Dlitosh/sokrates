@@ -42,20 +42,23 @@ public class LogicalDecompositionAnalyzer extends Analyzer {
         this.progressFeedback = progressFeedback;
         progressFeedback.start();
         progressFeedback.setDetailedText("");
-        AnalysisUtils.info(textSummary, progressFeedback, "Extracting dependencies...", start);
-        DependenciesAnalysis dependenciesAnalysis = DependenciesUtils.extractDependencies(codeConfiguration.getMain(), codeAnalysisResults.getCodeConfiguration().getAnalysis().isSkipDependencies());
-
+        boolean skipDependencies = codeAnalysisResults.getCodeConfiguration().getAnalysis().isSkipDependencies();
+        DependenciesAnalysis dependenciesAnalysis = new DependenciesAnalysis();
         boolean shouldGetDependencies = false;
-
-        for (LogicalDecomposition logicalDecomposition : codeConfiguration.getLogicalDecompositions()) {
-            if (logicalDecomposition.getDependenciesFinder().isUseBuiltInDependencyFinders()) {
-                shouldGetDependencies = true;
-                break;
+        if (!skipDependencies) {
+            AnalysisUtils.info(textSummary, progressFeedback, "Analysing dependencies...", start);
+            dependenciesAnalysis = DependenciesUtils.extractDependencies(codeConfiguration.getMain(), skipDependencies);
+            for (LogicalDecomposition logicalDecomposition : codeConfiguration.getLogicalDecompositions()) {
+                if (logicalDecomposition.getDependenciesFinder().isUseBuiltInDependencyFinders()) {
+                    shouldGetDependencies = true;
+                    break;
+                }
             }
         }
 
         List<Dependency> allDependencies = shouldGetDependencies ? dependenciesAnalysis.getDependencies() : new ArrayList<>();
         this.codeAnalysisResults.setAllDependencies(allDependencies);
+        DependenciesAnalysis finalDependenciesAnalysis = dependenciesAnalysis;
         codeConfiguration.getLogicalDecompositions().forEach(logicalDecomposition -> {
             LogicalDecompositionAnalysisResults logicalDecompositionAnalysisResults = new LogicalDecompositionAnalysisResults(logicalDecomposition.getName());
             logicalDecompositionAnalysisResults.setLogicalDecomposition(logicalDecomposition);
@@ -63,7 +66,8 @@ public class LogicalDecompositionAnalyzer extends Analyzer {
             logicalDecomposition.getComponents().forEach(component -> {
                 AspectAnalysisResults componentAnalysisResults = new AspectAnalysisResults(component.getName());
                 logicalDecompositionAnalysisResults.getComponents().add(componentAnalysisResults);
-                AnalysisUtils.analyze(logicalDecomposition.getName(), component, LogicalDecompositionAnalyzer.this.progressFeedback, componentAnalysisResults,
+                AnalysisUtils.analyze("DECOMPOSITION_" + logicalDecomposition.getName(), component, null,
+                        LogicalDecompositionAnalyzer.this.progressFeedback, componentAnalysisResults,
                         metricsList, textSummary, start);
             });
 
@@ -81,7 +85,7 @@ public class LogicalDecompositionAnalyzer extends Analyzer {
 
             addDependencyMetrics(allDependencies, logicalDecomposition.getName(), componentDependencies);
             List<DependencyError> errors = new ArrayList<>();
-            dependenciesAnalysis.getErrors().stream().filter(error -> error.getFiltering().equals(logicalDecomposition.getName())).forEach(errors::add);
+            finalDependenciesAnalysis.getErrors().stream().filter(error -> error.getFiltering().equals(logicalDecomposition.getName())).forEach(errors::add);
             logicalDecompositionAnalysisResults.getComponentDependenciesErrors().addAll(errors);
 
         });
@@ -103,23 +107,19 @@ public class LogicalDecompositionAnalyzer extends Analyzer {
         String name = getMetricFriendlyName(logicalDecompositionName);
 
         metricsList.addMetric()
-                .id(AnalysisUtils.getMetricId("NUMBER_OF_DEPENDENCIES_" + name))
-                .scope(Metric.Scope.LOGICAL_DECOMPOSITION)
+                .id(AnalysisUtils.getMetricId("NUMBER_OF_DEPENDENCIES_DECOMPOSITION_" + name))
                 .value(componentDependencies.size());
 
         metricsList.addMetric()
-                .id(AnalysisUtils.getMetricId("NUMBER_OF_PLACES_WITH_CYCLIC_DEPENDENCIES_" + name))
-                .scope(Metric.Scope.LOGICAL_DECOMPOSITION)
+                .id(AnalysisUtils.getMetricId("NUMBER_OF_PLACES_WITH_CYCLIC_DEPENDENCIES_DECOMPOSITION_" + name))
                 .value(DependencyUtils.getCyclicDependencyPlacesCount(componentDependencies));
     }
 
     private void addNumberOfAnchorDependenciesMetric(List<Dependency> allDependencies, String logicalDecompositionName) {
         String name = getMetricFriendlyName(logicalDecompositionName);
         metricsList.addMetric()
-                .id(AnalysisUtils.getMetricId("NUMBER_OF_DEPENDENCY_LINKS_" + name))
+                .id(AnalysisUtils.getMetricId("NUMBER_OF_DEPENDENCY_LINKS_DECOMPOSITION_" + name))
                 .description("Number of anchor dependencies")
-                .scope(Metric.Scope.LOGICAL_DECOMPOSITION)
-                .scopeQualifier(logicalDecompositionName)
                 .value(allDependencies.size());
     }
 

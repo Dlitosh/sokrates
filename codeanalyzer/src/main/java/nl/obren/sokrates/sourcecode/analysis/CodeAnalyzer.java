@@ -8,7 +8,6 @@ import nl.obren.sokrates.common.utils.ProgressFeedback;
 import nl.obren.sokrates.sourcecode.analysis.files.*;
 import nl.obren.sokrates.sourcecode.analysis.results.CodeAnalysisResults;
 import nl.obren.sokrates.sourcecode.core.CodeConfiguration;
-import nl.obren.sokrates.sourcecode.metrics.Metric;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -41,25 +40,37 @@ public class CodeAnalyzer {
     public CodeAnalysisResults analyze(ProgressFeedback progressFeedback) {
         this.progressFeedback = progressFeedback;
         results = new CodeAnalysisResults();
+        results.setMetadata(codeConfiguration.getMetadata());
         start = System.currentTimeMillis();
         results.setAnalysisStartTimeMs(start);
         results.setCodeConfiguration(codeConfiguration);
+        StringBuffer textSummary = results.getTextSummary();
 
         AnalysisUtils.detailedInfo(results.getTextSummary(), progressFeedback, "Start of analysis", start);
 
         new BasicsAnalyzer(results, codeConfigurationFile, progressFeedback).analyze();
 
         if (shouldAnalyzeLogicalDecomposition()) {
+            AnalysisUtils.info(textSummary, progressFeedback, "Analysing logical decompositions...", start);
             new LogicalDecompositionAnalyzer(results).analyze(progressFeedback);
         }
 
-        if (shouldAnalyzeCrossCuttingConcerns()) {
-            new CrossCuttingConcernsAnalyzer(results, progressFeedback).analyze();
+        if (shouldAnalyzeConcerns()) {
+            AnalysisUtils.info(textSummary, progressFeedback, "Analysing features of interest...", start);
+            new ConcernsAnalyzer(results, progressFeedback).analyze();
         }
 
-        if (shouldAnalyzeFiles()) {
+        if (shouldAnalyzeFileSize()) {
+            AnalysisUtils.info(textSummary, progressFeedback, "Analysing file size...", start);
             new FileSizeAnalyzer(results).analyze();
         }
+
+        if (shouldAnalyzeFileHistory()) {
+            AnalysisUtils.info(textSummary, progressFeedback, "Analysing commits history...", start);
+            new FileHistoryAnalyzer(results, codeConfigurationFile.getParentFile()).analyze();
+        }
+
+        new ContributorsAnalyzer(results, codeConfigurationFile.getParentFile()).analyze();
 
         if (shouldAnalyzeUnits()) {
             new UnitsAnalyzer(results, progressFeedback).analyze();
@@ -79,12 +90,16 @@ public class CodeAnalyzer {
     }
 
 
-    private boolean shouldAnalyzeCrossCuttingConcerns() {
-        return codeAnalyzerSettings.isAnalyzeCrossCuttingConcerns() || codeAnalyzerSettings.isCreateMetricsList() || codeAnalyzerSettings.isAnalyzeControls();
+    private boolean shouldAnalyzeConcerns() {
+        return codeAnalyzerSettings.isAnalyzeConcerns() || codeAnalyzerSettings.isCreateMetricsList() || codeAnalyzerSettings.isAnalyzeControls();
     }
 
-    private boolean shouldAnalyzeFiles() {
+    private boolean shouldAnalyzeFileSize() {
         return codeAnalyzerSettings.isAnalyzeFileSize() || codeAnalyzerSettings.isCreateMetricsList() || codeAnalyzerSettings.isAnalyzeControls();
+    }
+
+    private boolean shouldAnalyzeFileHistory() {
+        return codeAnalyzerSettings.isAnalyzeFileHistory();
     }
 
     private boolean shouldAnalyzeUnits() {
@@ -108,7 +123,6 @@ public class CodeAnalyzer {
         results.getMetricsList().addMetric()
                 .id(AnalysisUtils.getMetricId("TOTAL_ANALYSIS_TIME_IN_MILLIS"))
                 .description("Total analysis time in milliseconds")
-                .scope(Metric.Scope.SYSTEM)
                 .value(System.currentTimeMillis() - start);
 
         AnalysisUtils.info(results.getTextSummary(), progressFeedback, "Total analysis time: " + new DecimalFormat("#.00").format(((System.currentTimeMillis() - start) / 10) * 0.01) + "s", start);

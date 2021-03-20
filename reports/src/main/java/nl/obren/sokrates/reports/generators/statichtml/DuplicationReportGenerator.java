@@ -14,6 +14,7 @@ import nl.obren.sokrates.sourcecode.analysis.results.DuplicationAnalysisResults;
 import nl.obren.sokrates.sourcecode.aspects.LogicalDecomposition;
 import nl.obren.sokrates.sourcecode.aspects.NamedSourceCodeAspect;
 import nl.obren.sokrates.sourcecode.dependencies.ComponentDependency;
+import nl.obren.sokrates.sourcecode.dependencies.DependencyEvidence;
 import nl.obren.sokrates.sourcecode.duplication.DuplicationDependenciesHelper;
 import nl.obren.sokrates.sourcecode.duplication.DuplicationInstance;
 import nl.obren.sokrates.sourcecode.metrics.DuplicationMetric;
@@ -41,6 +42,7 @@ public class DuplicationReportGenerator {
 
     public void getDuplicatesTable(RichTextReport report, List<DuplicationInstance> sourceFiles, String fragmentType) {
         report.startDiv("width: 100%; overflow-x: auto");
+        report.startScrollingDiv();
         report.addHtmlContent("<table style='width: 80%'>\n");
         report.addHtmlContent("<th>Size</th><th>#</th><th>Folders</th><th>Files</th><th>Lines</th><th>Code</th>");
         int count[] = {0};
@@ -54,7 +56,6 @@ public class DuplicationReportGenerator {
             report.addHtmlContent("<td>" + instance.getBlockSize() + "</td>");
             report.addHtmlContent("<td>x&nbsp;" + instance.getDuplicatedFileBlocks().size() + "</td>");
             String folderString = formatDisplayString(instance.getFoldersDisplayString());
-            folderString = StringUtils.abbreviateMiddle(folderString, "...", 50);
             report.addHtmlContent("<td>" + folderString + "</td>");
             boolean cacheSourceFiles = codeAnalysisResults.getCodeConfiguration().getAnalysis().isCacheSourceFiles();
             report.addHtmlContent("<td>" + formatDisplayStringSimple(instance.getFilesDisplayString(cacheSourceFiles)) + "</td>");
@@ -65,6 +66,7 @@ public class DuplicationReportGenerator {
         });
         report.addHtmlContent("</table>\n");
         report.endDiv();
+        report.endDiv();
     }
 
     private String formatDisplayStringSimple(String text) {
@@ -72,7 +74,12 @@ public class DuplicationReportGenerator {
     }
 
     private String formatDisplayString(String text) {
-        return text.replace(" ", "&nbsp;").replace("\n", "</br>");
+        text = text.replace(" ", "&nbsp;");
+        StringBuilder stringBuilder = new StringBuilder();
+        for (String line : text.split("\n")) {
+            stringBuilder.append(StringUtils.abbreviateMiddle(line, "...", 50)).append("\n");
+        }
+        return stringBuilder.toString().replace("\n", "</br>");
     }
 
     public void addDuplicationToReport(RichTextReport report) {
@@ -120,10 +127,10 @@ public class DuplicationReportGenerator {
         report.startUnorderedList();
         report.addListItem("<b>" + FormattingUtils.getFormattedPercentage(duplicationAnalysisResults.getOverallDuplication().getDuplicationPercentage().doubleValue()) + "%</b> duplication:");
         report.startUnorderedList();
-        report.addListItem("<b>" + FormattingUtils.getFormattedCount(duplicationAnalysisResults.getOverallDuplication().getCleanedLinesOfCode()) + "</b> cleaned lines of cleaned code (without empty lines, comments, and frequently duplicated constructs such as imports)");
-        report.addListItem("<b>" + FormattingUtils.getFormattedCount(duplicationAnalysisResults.getOverallDuplication().getDuplicatedLinesOfCode()) + "</b> duplicated lines");
+        report.addListItem("<b>" + FormattingUtils.formatCount(duplicationAnalysisResults.getOverallDuplication().getCleanedLinesOfCode()) + "</b> cleaned lines of cleaned code (without empty lines, comments, and frequently duplicated constructs such as imports)");
+        report.addListItem("<b>" + FormattingUtils.formatCount(duplicationAnalysisResults.getOverallDuplication().getDuplicatedLinesOfCode()) + "</b> duplicated lines");
         report.endUnorderedList();
-        report.addListItem("<a href='../data/duplicates.txt'><b>" + FormattingUtils.getFormattedCount(duplicationAnalysisResults.getAllDuplicates().size()) + " duplicates</b></a>");
+        report.addListItem("<a href='../data/text/duplicates.txt'><b>" + FormattingUtils.formatCount(duplicationAnalysisResults.getAllDuplicates().size()) + " duplicates</b></a>");
         report.endUnorderedList();
         DuplicationReportUtils.addOverallDuplication(report, duplicationAnalysisResults.getOverallDuplication());
         report.endSection();
@@ -176,6 +183,7 @@ public class DuplicationReportGenerator {
             graphvizDependencyRenderer.setType("graph");
             graphvizDependencyRenderer.setArrow("--");
             graphvizDependencyRenderer.setArrowColor("crimson");
+            graphvizDependencyRenderer.setMaxNumberOfDependencies(50);
             String graphvizContent = graphvizDependencyRenderer.getGraphvizContent(new ArrayList<>(), componentDependencies);
             report.addLevel3Header("Duplication Between Components (" + threshold + "+ lines)", "margin-top: 30px");
 
@@ -210,7 +218,7 @@ public class DuplicationReportGenerator {
 
             report.addTableCell(componentDependency.getCount() + "", "text-align: center");
 
-            int pairsCount = componentDependency.getPathsFrom().size();
+            int pairsCount = componentDependency.getEvidence().size();
             String filePairsText = pairsCount + (pairsCount == 1 ? " file pair" : " file pairs");
 
             report.startTableCell("text-align: center");
@@ -229,20 +237,20 @@ public class DuplicationReportGenerator {
     }
 
     private String saveFilePairs(ComponentDependency componentDependency) {
-        File file = new File(this.report.getReportsFolder(), "data/intercomponent_duplicated_file_pairs_" + filePairsCount++ + ".txt");
+        File file = new File(this.report.getReportsFolder(), "data/text/intercomponent_duplicated_file_pairs_" + filePairsCount++ + ".txt");
 
         try {
-            String content = componentDependency.getPathsFrom().stream().collect(Collectors.joining("\n\n"));
+            String content = componentDependency.getEvidence().stream().map(DependencyEvidence::getPathFrom).collect(Collectors.joining("\n\n"));
             FileUtils.write(file, content, StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        return "../data/" + file.getName();
+        return "../data/text/" + file.getName();
     }
 
     private String saveDuplicates(ComponentDependency componentDependency, String logicalDecompositionName, List<DuplicationInstance> allInstances) {
-        File file = new File(this.report.getReportsFolder(), "data/intercomponent_duplicates_" + componentDuplicatesCount++ + ".txt");
+        File file = new File(this.report.getReportsFolder(), "data/text/intercomponent_duplicates_" + componentDuplicatesCount++ + ".txt");
         List<DuplicationInstance> duplicates = this.codeAnalysisResults.getDuplicationAnalysisResults().getAllDuplicates();
 
         String from = componentDependency.getFromComponent();
@@ -293,7 +301,7 @@ public class DuplicationReportGenerator {
             e.printStackTrace();
         }
 
-        return "../data/" + file.getName();
+        return "../data/text/" + file.getName();
     }
 
     private void addDownloadLinks(String graphId) {
@@ -303,7 +311,7 @@ public class DuplicationReportGenerator {
         report.addHtmlContent(" ");
         report.addNewTabLink("DOT", "visuals/" + graphId + ".dot.txt");
         report.addHtmlContent(" ");
-        report.addNewTabLink("(open online Graphviz editor)", "https://www.zeljkoobrenovic.com/tools/graphviz/");
+        report.addNewTabLink("(open online Graphviz editor)", "https://obren.io/tools/graphviz/");
         report.endDiv();
     }
 

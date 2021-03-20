@@ -10,10 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AnalysisConfig {
-    private boolean skipDuplication = false;
+    private boolean skipDuplication = true;
     private boolean skipDependencies = false;
     private boolean cacheSourceFiles = true;
-    private boolean saveDailyHistory = false;
+    private int maxLineLength = 1000;
     private List<AnalyzerOverride> analyzerOverrides = new ArrayList<>();
 
     public boolean isSkipDuplication() {
@@ -40,12 +40,12 @@ public class AnalysisConfig {
         this.analyzerOverrides = analyzerOverrides;
     }
 
-    public boolean isSaveDailyHistory() {
-        return saveDailyHistory;
+    public int getMaxLineLength() {
+        return maxLineLength;
     }
 
-    public void setSaveDailyHistory(boolean saveDailyHistory) {
-        this.saveDailyHistory = saveDailyHistory;
+    public void setMaxLineLength(int maxLineLength) {
+        this.maxLineLength = maxLineLength;
     }
 
     public boolean isCacheSourceFiles() {

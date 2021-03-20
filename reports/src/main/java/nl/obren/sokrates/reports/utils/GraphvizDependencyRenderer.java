@@ -4,9 +4,12 @@
 
 package nl.obren.sokrates.reports.utils;
 
+import nl.obren.sokrates.sourcecode.aspects.ComponentGroup;
 import nl.obren.sokrates.sourcecode.dependencies.ComponentDependency;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class GraphvizDependencyRenderer {
@@ -24,8 +27,12 @@ public class GraphvizDependencyRenderer {
     private StringBuilder body = new StringBuilder();
     private String type = "digraph";
     private String arrow = "->";
-    private String arrowColor = "deepskyblue4";
+    private boolean changingArrowColor = false;
+    private String arrowColorChanging = "#00688b";
+    private String arrowColor = "#00688b";
     private String defaultNodeFillColor = "grey";
+    private int maxNumberOfDependencies;
+    private boolean reverseDirection = false;
 
     public GraphvizDependencyRenderer() {
     }
@@ -82,11 +89,12 @@ public class GraphvizDependencyRenderer {
                 "    compound=\"true\"\n" +
                 "    rankdir=\"" + orientation + "\"\n" +
                 "    bgcolor=\"white\"\n" +
+                "    fontname=\"Tahoma\"\n\n" +
                 "    node [\n" +
                 "        fixedsize=\"false\"\n" +
                 "        fontname=\"Tahoma\"\n" +
                 "        color=\"white\"\n" +
-                "        fillcolor=\""+ defaultNodeFillColor +"\"\n" +
+                "        fillcolor=\"" + defaultNodeFillColor + "\"\n" +
                 "        fontcolor=\"black\"\n" +
                 "        shape=\"box\"\n" +
                 "        style=\"filled\"\n" +
@@ -94,7 +102,7 @@ public class GraphvizDependencyRenderer {
                 "    ]\n" +
                 "    edge [\n" +
                 "        fontname=\"Arial\"\n" +
-                "        color=\"" + arrowColor + "\"\n" +
+                "        color=\"" + getArrowColor() + "\"\n" +
                 "        fontcolor=\"black\"\n" +
                 "        fontsize=\"12\"\n" +
                 "        arrowsize=\"0.5\"\n" +
@@ -103,6 +111,10 @@ public class GraphvizDependencyRenderer {
     }
 
     public String getGraphvizContent(List<String> allComponents, List<ComponentDependency> componentDependencies) {
+        return this.getGraphvizContent(allComponents, componentDependencies, new ArrayList<>());
+    }
+
+    public String getGraphvizContent(List<String> allComponents, List<ComponentDependency> componentDependencies, List<ComponentGroup> groups) {
         int maxCount = getMaxDependencyCount(componentDependencies);
         StringBuilder graphviz = new StringBuilder();
         graphviz.append(getHeader());
@@ -113,17 +125,44 @@ public class GraphvizDependencyRenderer {
         });
         graphviz.append("\n");
 
-        componentDependencies
-                .stream()
+        int[] clusterId = {0};
+        graphviz.append("\n");
+        groups.stream().filter(g -> StringUtils.isNotBlank(g.getName())).forEach(g -> {
+            clusterId[0] += 1;
+            graphviz.append("    subgraph cluster_" + clusterId[0] + " {\n");
+            graphviz.append("        label = \"" + encodeLabel(g.getName() + " (" + g.getComponentNames().size() + ")") + "\";\n");
+            g.getComponentNames().stream().filter(c -> StringUtils.isNotBlank(c)).forEach(c -> {
+                graphviz.append("        \"" + encodeLabel(c) + "\";\n");
+            });
+            graphviz.append("    }\n");
+        });
+        graphviz.append("\n");
+
+        List<ComponentDependency> renderDependencies = componentDependencies;
+        Collections.sort(renderDependencies, (a, b) -> b.getCount() - a.getCount());
+
+        if (maxNumberOfDependencies > 0 && renderDependencies.size() > maxNumberOfDependencies) {
+            renderDependencies = renderDependencies.subList(0, maxNumberOfDependencies);
+        }
+
+        renderDependencies.stream()
                 .filter(d -> StringUtils.isNotBlank(d.getFromComponent()) && StringUtils.isNotBlank(d.getToComponent()))
                 .forEach(componentDependency -> {
                     int thickness = getThickness(componentDependency, maxCount);
-                    graphviz.append("    \"" + encodeLabel(componentDependency.getFromComponent())
+                    String color = componentDependency.getColor();
+                    if (StringUtils.isBlank(color)) {
+                        color = isCyclic(componentDependencies, componentDependency) ? "#DC143C" : this.arrowColor;
+                    }
+                    int transparency = (int) (255.0 * (0.3 + 0.7 * thickness / 10.0));
+                    color += String.format("%02X", transparency);
+                    String fromComponent = reverseDirection ? componentDependency.getToComponent() : componentDependency.getFromComponent();
+                    String toComponent = reverseDirection ? componentDependency.getFromComponent() : componentDependency.getToComponent();
+                    graphviz.append("    \"" + encodeLabel(fromComponent)
                             + "\" " + arrow + " \""
-                            + encodeLabel(componentDependency.getToComponent()) + "\""
+                            + encodeLabel(toComponent) + "\""
                             + " [label=\" " + encodeLabel(getLabel(componentDependency))
                             + " \", penwidth=\"" + Math.max(1, thickness) + "\""
-                            + (isCyclic(componentDependencies, componentDependency) ? ", color=\"crimson\"" : "")
+                            + ", color=\"" + color + "\""
                             + "];\n");
                 });
         graphviz.append("\n}");
@@ -174,5 +213,37 @@ public class GraphvizDependencyRenderer {
 
     public void setDefaultNodeFillColor(String defaultNodeFillColor) {
         this.defaultNodeFillColor = defaultNodeFillColor;
+    }
+
+    public int getMaxNumberOfDependencies() {
+        return maxNumberOfDependencies;
+    }
+
+    public void setMaxNumberOfDependencies(int maxNumberOfDependencies) {
+        this.maxNumberOfDependencies = maxNumberOfDependencies;
+    }
+
+    public boolean isChangingArrowColor() {
+        return changingArrowColor;
+    }
+
+    public void setChangingArrowColor(boolean changingArrowColor) {
+        this.changingArrowColor = changingArrowColor;
+    }
+
+    public String getArrowColorChanging() {
+        return arrowColorChanging;
+    }
+
+    public void setArrowColorChanging(String arrowColorChanging) {
+        this.arrowColorChanging = arrowColorChanging;
+    }
+
+    public boolean isReverseDirection() {
+        return reverseDirection;
+    }
+
+    public void setReverseDirection(boolean reverseDirection) {
+        this.reverseDirection = reverseDirection;
     }
 }

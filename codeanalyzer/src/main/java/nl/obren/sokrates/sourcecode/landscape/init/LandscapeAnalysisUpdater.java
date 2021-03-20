@@ -26,8 +26,8 @@ public class LandscapeAnalysisUpdater {
             try {
                 String json = FileUtils.readFileToString(landscapeConfigFile, StandardCharsets.UTF_8);
                 LandscapeConfiguration existingConfiguration = (LandscapeConfiguration) new JsonMapper().getObject(json, LandscapeConfiguration.class);
-                removeNonExistingProjects(existingConfiguration);
-                addNewProjects(newConfig, existingConfiguration);
+                existingConfiguration.setSubLandscapes(newConfig.getSubLandscapes());
+                existingConfiguration.setProjects(newConfig.getProjects());
                 save(landscapeConfigFile, existingConfiguration);
                 return existingConfiguration;
             } catch (IOException e) {

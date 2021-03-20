@@ -162,7 +162,11 @@ public class ScopesRenderer {
                     report.addLineBreak();
                     report.addLineBreak();
                 }
+
+                report.startScrollingDiv();
                 getSvgBars(report, renderingList);
+                report.endDiv();
+
                 if (inSection) report.endSection();
             }
         }
@@ -178,7 +182,7 @@ public class ScopesRenderer {
                 item.setFilesCount(fileCountPerComponent.get(i));
                 filesFragment = fileCountPerComponent.get(i).getValue() + " files";
                 if (aspectsFileListPaths != null && aspectsFileListPaths.size() > i) {
-                    filesFragment = "<u><a href='../data/aspect_" + aspectsFileListPaths.get(i)
+                    filesFragment = "<u><a href='../data/text/aspect_" + aspectsFileListPaths.get(i)
                             + ".txt'>" + filesFragment + "</a></u>";
                 }
                 item.setFilesFragment(filesFragment);
@@ -223,7 +227,7 @@ public class ScopesRenderer {
     }
 
     private String describeFilters(SourceFileFilter filter) {
-        String description = filter.getInclude() ? "" : "except";
+        String description = !filter.getException() ? "" : "except";
         description += " files with ";
         boolean add = false;
         if (StringUtils.isNotBlank(filter.getPathPattern())) {
@@ -272,7 +276,7 @@ public class ScopesRenderer {
             String filesFragment;
             String filesPhrase = filesCount == 1 ? "file" : "files";
             if (StringUtils.isNotBlank(filesListPath)) {
-                filesFragment = "<a href='../data/" + filesListPath + "'><b>" + filesCount + "</b> " + filesPhrase + "</a>";
+                filesFragment = "<a href='../data/text/" + filesListPath + "'><b>" + filesCount + "</b> " + filesPhrase + "</a>";
             } else {
                 filesFragment = "<b>" + filesCount + "</b> " + filesPhrase;
             }

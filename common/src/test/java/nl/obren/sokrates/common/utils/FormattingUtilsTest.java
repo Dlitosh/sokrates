@@ -5,7 +5,6 @@
 package nl.obren.sokrates.common.utils;
 
 import junit.framework.TestCase;
-import nl.obren.sokrates.common.utils.FormattingUtils;
 import org.junit.Test;
 
 import static junit.framework.TestCase.assertEquals;
@@ -39,15 +38,15 @@ public class FormattingUtilsTest {
 
     @Test
     public void getFormattedCount() throws Exception {
-        assertEquals(FormattingUtils.getFormattedCount(100), "100");
-        assertEquals(FormattingUtils.getFormattedCount(1000), "1,000");
-        assertEquals(FormattingUtils.getFormattedCount(10000), "10,000");
-        assertEquals(FormattingUtils.getFormattedCount(100000), "100,000");
-        assertEquals(FormattingUtils.getFormattedCount(1000000), "1,000,000");
-        assertEquals(FormattingUtils.getFormattedCount(10000000), "10,000,000");
-        assertEquals(FormattingUtils.getFormattedCount(10), "10");
-        assertEquals(FormattingUtils.getFormattedCount(1), "1");
-        assertEquals(FormattingUtils.getFormattedCount(0), "0");
+        assertEquals(FormattingUtils.formatCount(100), "100");
+        assertEquals(FormattingUtils.formatCount(1000), "1,000");
+        assertEquals(FormattingUtils.formatCount(10000), "10,000");
+        assertEquals(FormattingUtils.formatCount(100000), "100,000");
+        assertEquals(FormattingUtils.formatCount(1000000), "1,000,000");
+        assertEquals(FormattingUtils.formatCount(10000000), "10,000,000");
+        assertEquals(FormattingUtils.formatCount(10), "10");
+        assertEquals(FormattingUtils.formatCount(1), "1");
+        assertEquals(FormattingUtils.formatCount(0), "0");
     }
 
     @Test
@@ -69,5 +68,20 @@ public class FormattingUtilsTest {
         assertEquals(FormattingUtils.getSmallTextForNumber(1999000), "<b>2</b>M");
         assertEquals(FormattingUtils.getSmallTextForNumber(9800000), "<b>9.8</b>M");
         assertEquals(FormattingUtils.getSmallTextForNumber(19800000), "<b>20</b>M");
+    }
+
+
+    @Test
+    public void formatPeriod() {
+        assertEquals(FormattingUtils.formatPeriod(0), "less than a month");
+        assertEquals(FormattingUtils.formatPeriod(10), "less than a month");
+        assertEquals(FormattingUtils.formatPeriod(30), "1 month");
+        assertEquals(FormattingUtils.formatPeriod(60), "2 months");
+        assertEquals(FormattingUtils.formatPeriod(91), "3 months");
+        assertEquals(FormattingUtils.formatPeriod(365), "1 year");
+        assertEquals(FormattingUtils.formatPeriod(367), "1 year");
+        assertEquals(FormattingUtils.formatPeriod(400), "1 year, 1 month");
+        assertEquals(FormattingUtils.formatPeriod(440), "1 year, 2 months");
+        assertEquals(FormattingUtils.formatPeriod(1440), "3 years, 11 months");
     }
 }

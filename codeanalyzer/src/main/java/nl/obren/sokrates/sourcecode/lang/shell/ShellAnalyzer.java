@@ -44,14 +44,6 @@ public class ShellAnalyzer extends LanguageAnalyzer {
         return SourceCodeCleanerUtils.cleanEmptyLinesWithLineIndexes(content);
     }
 
-    private String emptyComments(SourceFile sourceFile) {
-        String content = sourceFile.getContent();
-
-        content = SourceCodeCleanerUtils.emptyComments(content, null, "/*", "*/").getCleanedContent();
-
-        return content;
-    }
-
     @Override
     public List<UnitInfo> extractUnits(SourceFile sourceFile) {
         return new ArrayList<>();

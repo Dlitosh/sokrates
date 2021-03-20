@@ -11,7 +11,7 @@ import nl.obren.sokrates.reports.dataexporters.DataExportUtils;
 import nl.obren.sokrates.reports.utils.ScopesRenderer;
 import nl.obren.sokrates.sourcecode.analysis.results.AspectAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.CodeAnalysisResults;
-import nl.obren.sokrates.sourcecode.analysis.results.CrossCuttingConcernsAnalysisResults;
+import nl.obren.sokrates.sourcecode.analysis.results.ConcernsAnalysisResults;
 import nl.obren.sokrates.sourcecode.analysis.results.LogicalDecompositionAnalysisResults;
 import nl.obren.sokrates.sourcecode.metrics.NumericMetric;
 import org.apache.commons.lang3.StringUtils;
@@ -26,42 +26,42 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-public class CrossCuttingConcernsReportGenerator {
-    private static final Log LOG = LogFactory.getLog(CrossCuttingConcernsReportGenerator.class);
+public class ConcernsReportGenerator {
+    private static final Log LOG = LogFactory.getLog(ConcernsReportGenerator.class);
     private CodeAnalysisResults codeAnalysisResults;
     private int groupCounter = 0;
     private int concernCounter = 0;
     private RichTextReport report;
 
-    public CrossCuttingConcernsReportGenerator(CodeAnalysisResults codeAnalysisResults) {
+    public ConcernsReportGenerator(CodeAnalysisResults codeAnalysisResults) {
         this.codeAnalysisResults = codeAnalysisResults;
     }
 
-    public void addCrossCuttingConcernsToReport(RichTextReport report) {
+    public void addConcernsToReport(RichTextReport report) {
         this.report = report;
         addIntro(report);
 
         addSummary(report);
 
-        addCrossCuttingConcernsGroup(report);
+        addConcernsGroup(report);
     }
 
     private void addSummary(RichTextReport report) {
         report.startSection("Overview", "");
 
-        codeAnalysisResults.getCrossCuttingConcernsAnalysisResults().forEach(crossCuttingConcernsAnalysisResults -> {
-            String group = crossCuttingConcernsAnalysisResults.getKey();
+        codeAnalysisResults.getConcernsAnalysisResults().forEach(concernsAnalysisResults -> {
+            String group = concernsAnalysisResults.getKey();
             report.addLevel2Header(group.toUpperCase());
             report.startDiv("width: 100%; overflow-x: auto");
-            if (crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().size() > 1) {
-                crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().forEach(concern -> {
-                    if (!isDerivedConcern(concern)) {
+            if (concernsAnalysisResults.getConcerns().size() > 1) {
+                concernsAnalysisResults.getConcerns().forEach(concern -> {
+                    if (!isDerivedConcern(concern.getName())) {
                         int mainLoc = codeAnalysisResults.getMainAspectAnalysisResults().getLinesOfCode();
                         int concernLoc = concern.getLinesOfCode();
                         double relativeConcernSizeInPerc = 100.0 * concernLoc / mainLoc;
-                        String fileListPath = concern.getAspect().getFileSystemFriendlyName(DataExportUtils.getCrossCuttingConcernFilePrefix(group));
+                        String fileListPath = concern.getAspect().getFileSystemFriendlyName(DataExportUtils.getConcernFilePrefix(group));
                         String svg = getOverviewCodePercentageSvg(relativeConcernSizeInPerc,
-                                concern.getFilesCount(), concernLoc, 400, 20, fileListPath);
+                                concern.getFilesCount(), concernLoc, 400, 20, fileListPath, isDerivedConcern(concern.getName()));
                         report.startDiv("");
                         report.addContentInDiv(concern.getName());
                         report.addHtmlContent(svg);
@@ -75,19 +75,18 @@ public class CrossCuttingConcernsReportGenerator {
         report.endSection();
     }
 
-    private boolean isDerivedConcern(AspectAnalysisResults concern) {
-        String name = concern.getName();
+    private boolean isDerivedConcern(String name) {
         return name.trim().startsWith("- ")
                 || name.equalsIgnoreCase("Unclassified")
                 || name.equalsIgnoreCase("Multiple Classifications");
     }
 
-    private void addCrossCuttingConcernsGroup(RichTextReport report) {
-        codeAnalysisResults.getCrossCuttingConcernsAnalysisResults().forEach(crossCuttingConcernsAnalysisResults -> {
-            if (crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().size() > 1) {
-                renderCrossCuttingConcern(report, crossCuttingConcernsAnalysisResults);
+    private void addConcernsGroup(RichTextReport report) {
+        codeAnalysisResults.getConcernsAnalysisResults().forEach(concernsAnalysisResults -> {
+            if (concernsAnalysisResults.getConcerns().size() > 1) {
+                renderConcern(report, concernsAnalysisResults);
             } else {
-                report.addParagraph("No cross-cutting concerns defined.");
+                report.addParagraph("No concerns defined.");
             }
         });
     }
@@ -95,31 +94,32 @@ public class CrossCuttingConcernsReportGenerator {
     private void addIntro(RichTextReport report) {
         report.startSection("Intro", "");
         report.startUnorderedList();
-        report.addListItem("Cross-cutting concerns are aspects of a software system that cannot be cleanly decomposed from the rest of the system.");
-        report.addListItem("A single concern may be present in multiple files. One source code file may contain multiple concerns.");
+        report.addListItem("Features of interest are any aspects of a software system that can be identified through patterns in code.");
+        report.addListItem("Features of interest provide you with a way to focus your attention on relevant parts of the codebase. Typical examples include, security, TODOs, logging.");
+        report.addListItem("A feature of interest may be present in multiple files. Any source code file may be in zero or multiple features of interest.");
         report.endUnorderedList();
         report.endSection();
     }
 
-    private void renderCrossCuttingConcern(RichTextReport report, CrossCuttingConcernsAnalysisResults crossCuttingConcernsAnalysisResults) {
-        String key = crossCuttingConcernsAnalysisResults.getKey();
+    private void renderConcern(RichTextReport report, ConcernsAnalysisResults concernsAnalysisResults) {
+        String key = concernsAnalysisResults.getKey();
         if (key.equalsIgnoreCase("Unclassified")) {
             return;
         }
         groupCounter++;
-        report.startSection("" + groupCounter + " " + key.toUpperCase() + " Cross-Cutting Concerns", "");
+        report.startSection("" + groupCounter + " " + key.toUpperCase() + " Concerns", "");
         report.startUnorderedList();
-        int count = crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().size();
+        int count = concernsAnalysisResults.getConcerns().size();
         report.addListItem("The \"" + key + "\" group contains <b>"
                 + count + "</b> concern" + (count > 1 ? "s" : "") + ".");
 
         report.startUnorderedList();
-        crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().forEach(c -> report.addListItem(c.getName()));
+        concernsAnalysisResults.getConcerns().forEach(c -> report.addListItem(c.getName()));
         report.endUnorderedList();
 
         report.endUnorderedList();
-        crossCuttingConcernsAnalysisResults.getCrossCuttingConcerns().forEach(aspectAnalysisResults -> {
-            renderScopes(key.toUpperCase(), aspectAnalysisResults);
+        concernsAnalysisResults.getConcerns().forEach(aspectAnalysisResults -> {
+            renderScopes(key, aspectAnalysisResults);
         });
         report.endSection();
     }
@@ -139,8 +139,9 @@ public class CrossCuttingConcernsReportGenerator {
         ScopesRenderer renderer = new ScopesRenderer();
         renderer.setLinesOfCodeInMain(codeAnalysisResults.getMainAspectAnalysisResults().getLinesOfCode());
 
-        String title = key + " / " + name.replace(" - ", " Multiple Classifications / ");
-        renderer.setTitle(groupCounter + "." + concernCounter + " " + title);
+        String title = "<span style='color: grey; font-size: 90%'>" + key + "</span><br>";
+        title += groupCounter + "." + concernCounter + " " + name.replace(" - ", " Multiple Classifications");
+        renderer.setTitle(title);
         renderer.setDescription("");
         if (name.equalsIgnoreCase("Unclassified")) {
             renderer.setDescription("This concern include all files that are not included in any of the previously described concerns in this group.");
@@ -162,8 +163,9 @@ public class CrossCuttingConcernsReportGenerator {
         int linesOfCode = aspectAnalysisResults.getLinesOfCode();
 
         report.startSubSection(renderer.getTitle(), "");
-        String fileListPath = aspectAnalysisResults.getAspect().getFileSystemFriendlyName(DataExportUtils.getCrossCuttingConcernFilePrefix(key));
-        report.addContentInDiv(getOverviewCodePercentageSvg(relativeSizeInPerc, numberOfFiles, linesOfCode, 200, 20, fileListPath), fileListPath);
+        String fileListPath = aspectAnalysisResults.getAspect().getFileSystemFriendlyName(DataExportUtils.getConcernFilePrefix(key));
+        report.addContentInDiv(getOverviewCodePercentageSvg(relativeSizeInPerc, numberOfFiles, linesOfCode,
+                200, 20, fileListPath, isDerivedConcern(name)), fileListPath);
 
         if (name.contains(" - ") && name.contains(" AND ")) {
             List<Double> percentages = extractPercentages(name);
@@ -194,43 +196,52 @@ public class CrossCuttingConcernsReportGenerator {
                 .forEach(component -> {
                     int componentLoc = component.getLinesOfCode();
                     int[] loc = {0};
+                    int[] filesCount = {0};
                     aspectAnalysisResults.getAspect().getSourceFiles()
                             .forEach(sourceFile -> {
                                 if (sourceFile.getLogicalComponents().contains(component.getAspect())) {
                                     loc[0] += sourceFile.getLinesOfCode();
+                                    filesCount[0] += 1;
                                 }
                             });
-                    double relativeComponentSizeInPerc = 100.0 * loc[0] / componentLoc;
-                    String svg = getCodePercentageSvg(relativeComponentSizeInPerc,
-                            component.getName(), component.getFilesCount(),
-                            loc[0],
-                            (int) ((double) 400 * componentLoc / mainLoc), 20);
-                    report.startDiv("");
-                    report.addHtmlContent(svg);
-                    report.endDiv();
+                    if (filesCount[0] > 0) {
+                        double relativeComponentSizeInPerc = 100.0 * loc[0] / componentLoc;
+                        String svg = getCodePercentageSvg(relativeComponentSizeInPerc,
+                                component.getName(),
+                                filesCount[0],
+                                loc[0],
+                                (int) ((double) 400 * componentLoc / mainLoc), 20);
+                        report.startDiv("");
+                        report.addHtmlContent(svg);
+                        report.endDiv();
+                    }
                 });
         report.endDiv();
     }
 
     private String getCodePercentageSvg(double percentage, String aspectName, int numberOfFiles, int linesOfCode, int maxSize, int barHeight) {
         String displayText = "in " + numberOfFiles + (numberOfFiles == 1 ? " file " : " files, ")
-                + "containing " + FormattingUtils.getFormattedCount(linesOfCode) + " LOC ("
+                + " " + FormattingUtils.formatCount(linesOfCode) + " LOC ("
                 + FormattingUtils.getFormattedPercentage(percentage) + "%)";
 
         SimpleOneBarChart chart = new SimpleOneBarChart();
-        chart.setWidth(800);
+        chart.setWidth(900);
         chart.setMaxBarWidth(maxSize);
         chart.setBarHeight(barHeight);
 
         return chart.getPercentageSvg(percentage, aspectName, displayText);
     }
 
-    private String getOverviewCodePercentageSvg(double percentage, int numberOfFiles, int linesOfCode, int maxSize, int barHeight, String fileListPath) {
+    private String getOverviewCodePercentageSvg(double percentage, int numberOfFiles, int linesOfCode, int maxSize, int barHeight, String fileListPath, boolean derivedConcern) {
         String filesFragment = numberOfFiles + (numberOfFiles == 1 ? " file " : " files");
         if (StringUtils.isNotBlank(fileListPath)) {
-            filesFragment = "<u><a href='../data/aspect_" + fileListPath + ".txt'>" + filesFragment + "</a></u>";
+            filesFragment = "<u><a href='../data/text/aspect_" + fileListPath + ".txt'>" + filesFragment + "</a></u>";
+            if (!derivedConcern) {
+                filesFragment += " | <u><a href='../data/text/aspect_" + fileListPath + "_found_text.txt'>found text</a></u>";
+                filesFragment += " | <u><a href='../data/text/aspect_" + fileListPath + "_found_text_per_file.txt'>found text per file</a></u>";
+            }
         }
-        String displayText = FormattingUtils.getFormattedCount(linesOfCode) + " LOC ("
+        String displayText = FormattingUtils.formatCount(linesOfCode) + " LOC ("
                 + FormattingUtils.getFormattedPercentage(percentage) + "%) "
                 + filesFragment;
 

@@ -13,9 +13,11 @@ public class CodeAnalyzerSettings {
     private boolean updateIndex = true;
     private boolean analyzeFilesInScope = true;
     private boolean analyzeLogicalDecomposition = true;
-    private boolean analyzeCrossCuttingConcerns = true;
+    private boolean analyzeConcerns = true;
     private boolean analyzeDuplication = true;
     private boolean analyzeFileSize = true;
+    private boolean analyzeFileHistory = true;
+    private boolean analyzeContributors = true;
     private boolean analyzeUnitSize = true;
     private boolean analyzeConditionalComplexity = true;
     private boolean createMetricsList = true;
@@ -25,14 +27,16 @@ public class CodeAnalyzerSettings {
     public void selectAll() {
         analyzeFilesInScope = true;
         analyzeLogicalDecomposition = true;
-        analyzeCrossCuttingConcerns = true;
+        analyzeConcerns = true;
         analyzeDuplication = true;
         analyzeFileSize = true;
+        analyzeFileHistory = true;
         analyzeUnitSize = true;
         analyzeConditionalComplexity = true;
         createMetricsList = true;
         analyzeControls = true;
         analyzeFindings = true;
+        analyzeContributors = true;
 
         dataOnly = false;
         updateIndex = true;
@@ -41,14 +45,16 @@ public class CodeAnalyzerSettings {
     public void deselectAll() {
         analyzeFilesInScope = false;
         analyzeLogicalDecomposition = false;
-        analyzeCrossCuttingConcerns = false;
+        analyzeConcerns = false;
         analyzeDuplication = false;
         analyzeFileSize = false;
+        analyzeFileHistory = false;
         analyzeUnitSize = false;
         analyzeConditionalComplexity = false;
         createMetricsList = false;
         analyzeControls = false;
         analyzeFindings = false;
+        analyzeContributors = false;
 
         dataOnly = false;
         updateIndex = false;
@@ -86,12 +92,12 @@ public class CodeAnalyzerSettings {
         this.analyzeLogicalDecomposition = analyzeLogicalDecomposition;
     }
 
-    public boolean isAnalyzeCrossCuttingConcerns() {
-        return analyzeCrossCuttingConcerns;
+    public boolean isAnalyzeConcerns() {
+        return analyzeConcerns;
     }
 
-    public void setAnalyzeCrossCuttingConcerns(boolean analyzeCrossCuttingConcerns) {
-        this.analyzeCrossCuttingConcerns = analyzeCrossCuttingConcerns;
+    public void setAnalyzeConcerns(boolean analyzeConcerns) {
+        this.analyzeConcerns = analyzeConcerns;
     }
 
     public boolean isAnalyzeDuplication() {
@@ -148,5 +154,21 @@ public class CodeAnalyzerSettings {
 
     public void setAnalyzeFindings(boolean analyzeFindings) {
         this.analyzeFindings = analyzeFindings;
+    }
+
+    public boolean isAnalyzeFileHistory() {
+        return analyzeFileHistory;
+    }
+
+    public void setAnalyzeFileHistory(boolean analyzeFileHistory) {
+        this.analyzeFileHistory = analyzeFileHistory;
+    }
+
+    public boolean isAnalyzeContributors() {
+        return analyzeContributors;
+    }
+
+    public void setAnalyzeContributors(boolean analyzeContributors) {
+        this.analyzeContributors = analyzeContributors;
     }
 }

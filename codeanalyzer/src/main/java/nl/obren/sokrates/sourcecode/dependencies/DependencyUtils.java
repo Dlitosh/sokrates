@@ -59,17 +59,26 @@ public class DependencyUtils {
         return count[0];
     }
 
-    public static List<ComponentDependency> getComponentDependencies(List<Dependency> dependencies, String group) {
+    public static List<ComponentDependency> getComponentDependencies(List<Dependency> dependencies, String groupName) {
         List<ComponentDependency> componentDependencies = new ArrayList<>();
         List<String> fileToComponentLinks = new ArrayList<>();
         dependencies.forEach(dependency -> {
             dependency.getFromFiles().forEach(sourceFileDependency -> {
-                dependency.getToComponents(group).forEach(targetComponent -> {
+                List<NamedSourceCodeAspect> fromComponents = dependency.getFromComponents(groupName);
+                List<NamedSourceCodeAspect> toComponents = dependency.getToComponents(groupName);
+                for (NamedSourceCodeAspect toComponent : toComponents) {
+                    for (NamedSourceCodeAspect fromComponent : fromComponents) {
+                        if (fromComponent.getName().equalsIgnoreCase(toComponent.getName())) {
+                            return;
+                        }
+                    }
+                }
+                toComponents.forEach(targetComponent -> {
                     String fileToComponentLink = sourceFileDependency.getSourceFile().getFile().getPath() + "::" +
                             targetComponent.getName();
                     if (!fileToComponentLinks.contains(fileToComponentLink)) {
                         fileToComponentLinks.add(fileToComponentLink);
-                        sourceFileDependency.getSourceFile().getLogicalComponents(group).forEach(sourceComponent -> {
+                        sourceFileDependency.getSourceFile().getLogicalComponents(groupName).forEach(sourceComponent -> {
                             addComponentDependency(sourceFileDependency, componentDependencies, sourceComponent, targetComponent);
                         });
                     }
@@ -95,7 +104,7 @@ public class DependencyUtils {
 
             SourceFile sourceFile = sourceFileDependency.getSourceFile();
             componentDependency.setLocFrom(componentDependency.getLocFrom() + sourceFile.getLinesOfCode());
-            componentDependency.getPathsFrom().add(sourceFile.getRelativePath());
+            componentDependency.getEvidence().add(new DependencyEvidence(sourceFile.getRelativePath(), sourceFileDependency.getCodeFragment()));
         }
     }
 
